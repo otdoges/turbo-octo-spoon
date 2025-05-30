@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Github, Mail } from 'lucide-react';
+import { AuthContext } from '../App';
 
 type AuthMode = 'login' | 'signup';
 
@@ -12,18 +13,27 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Mock authentication - accept any credentials
-    setIsLoading(false);
-    navigate('/dashboard');
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Call the login function from AuthContext
+      login();
+      
+      // Complete loading and redirect
+      setIsLoading(false);
+      navigate('/dashboard');
+    } catch (err) {
+      setError('Authentication failed. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
