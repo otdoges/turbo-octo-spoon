@@ -9,7 +9,6 @@ import {
   HelpCircle, 
   ChevronLeft,
   Zap,
-  ArrowRight,
   Search,
   User
 } from 'lucide-react';
