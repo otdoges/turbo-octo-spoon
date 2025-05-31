@@ -6,15 +6,45 @@ const NewTransformation = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [stylePreference, setStylePreference] = useState<string | null>(null);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAnalyzing(true);
-    // Simulate analysis process
-    setTimeout(() => {
+    setScreenshotError(null);
+
+    try {
+      // Call screenshot API
+      const response = await fetch('http://localhost:3001/api/screenshot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to capture screenshot');
+      }
+
+      // Save screenshot URL
+      setScreenshotUrl(`http://localhost:3001${data.screenshotUrl}`);
+      
+      // Continue to next step
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setCurrentStep(2);
+      }, 1000);
+    } catch (error) {
+      console.error('Error taking screenshot:', error);
+      setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
+        ? (error as Error).message 
+        : 'Failed to capture screenshot');
       setIsAnalyzing(false);
-      setCurrentStep(2);
-    }, 2000);
+    }
   };
 
   const handleStyleSelection = (style: string) => {
@@ -119,11 +149,31 @@ const NewTransformation = () => {
                 <div className="p-4 bg-white/5 rounded-lg border border-white/10">
                   <div className="flex items-center gap-4 mb-2">
                     <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                    <p className="text-gray-300">Analyzing website structure and design...</p>
+                    <p className="text-gray-300">Taking screenshot and analyzing website structure...</p>
                   </div>
                   <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
                   </div>
+                </div>
+              )}
+
+              {screenshotError && !isAnalyzing && (
+                <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-red-300 font-medium">Screenshot Error</p>
+                      <p className="text-gray-300 text-sm">{screenshotError}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setScreenshotError(null)}
+                    className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               )}
             </form>
@@ -243,7 +293,7 @@ const NewTransformation = () => {
                 </div>
                 <div className="bg-white h-[500px] rounded-lg overflow-hidden">
                   <img 
-                    src="https://placehold.co/800x600/e2e8f0/1e293b?text=Website+Preview" 
+                    src={screenshotUrl || "https://placehold.co/800x600/e2e8f0/1e293b?text=Website+Preview"} 
                     alt="Website Preview" 
                     className="w-full h-full object-cover"
                   />
