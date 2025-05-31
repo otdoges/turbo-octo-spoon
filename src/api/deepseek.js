@@ -4,6 +4,7 @@
  */
 
 import { isRateLimited, getRateLimitInfo } from './utils/rateLimit.js';
+import { securityMiddleware, sanitizeUserInput, isValidUrl } from './utils/securityUtils.js';
 
 // Get API key from environment variables
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -23,6 +24,9 @@ function validateRequest(body) {
 }
 
 export default async function handler(req, res) {
+  // Apply security middleware
+  securityMiddleware(req, res);
+  
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -47,11 +51,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, context, system_prompt } = req.body;
+    // Sanitize inputs
+    const prompt = sanitizeUserInput(req.body.prompt);
+    const context = req.body.context ? sanitizeUserInput(req.body.context) : undefined;
+    const system_prompt = req.body.system_prompt ? sanitizeUserInput(req.body.system_prompt) : undefined;
 
     // Validate the request
     try {
-      validateRequest(req.body);
+      validateRequest({ prompt });
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }
@@ -61,12 +68,20 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'OpenRouter API key not configured' });
     }
 
+    // Determine referrer URL
+    const referrerUrl = req.headers.origin || req.headers.referer || 'https://app.example.com';
+    
+    // Validate referrer URL
+    if (!isValidUrl(referrerUrl)) {
+      return res.status(400).json({ error: 'Invalid referrer URL' });
+    }
+
     // Prepare the request to OpenRouter
     const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": req.headers.origin || 'https://app.example.com',
+        "HTTP-Referer": referrerUrl,
         "X-Title": "LuminaWeb AI Team",
         "Content-Type": "application/json"
       },
@@ -106,8 +121,8 @@ export default async function handler(req, res) {
     
     // Return parsed results to the client
     return res.status(200).json({
-      thinking: thinkingMatch ? thinkingMatch[1].trim() : "No thinking process provided",
-      recommendation: recommendationMatch ? recommendationMatch[1].trim() : "No recommendation provided"
+      thinking: thinkingMatch ? sanitizeUserInput(thinkingMatch[1].trim()) : "No thinking process provided",
+      recommendation: recommendationMatch ? sanitizeUserInput(recommendationMatch[1].trim()) : "No recommendation provided"
     });
   } catch (error) {
     console.error('Error calling DeepSeek API:', error);
