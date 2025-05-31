@@ -1,6 +1,6 @@
 # LuminaWeb - AI Website Transformation
 
-This application uses serverless functions to take screenshots of websites and upload images for AI analysis and transformation. The application is designed to be deployed on serverless platforms like Vercel and Netlify.
+This application uses serverless functions to take screenshots of websites and upload images for AI analysis and transformation. The application is designed to be deployed on serverless platforms like Vercel and Netlify with secure temporary file storage.
 
 ## Features
 
@@ -9,6 +9,7 @@ This application uses serverless functions to take screenshots of websites and u
 - Analyze website design and structure (AI integration coming soon)
 - Apply AI-powered transformations
 - Preview before/after comparisons
+- Secure encrypted file storage with automatic cleanup
 
 ## Development Setup
 
@@ -17,29 +18,47 @@ This application uses serverless functions to take screenshots of websites and u
    bun install
    ```
 
-2. Start the development server:
+2. Create a `.env.local` file in the root directory with the following variables:
+   ```
+   # API Configuration
+   VITE_API_URL=http://localhost:3001
+   
+   # Screenshot API
+   SCREENSHOT_API_KEY=your_screenshot_api_key
+   
+   # Security
+   JWT_SECRET=your_secure_random_string
+   FILE_ENCRYPTION_KEY=your_secure_32_character_key
+   
+   # Temporary File Settings
+   MAX_FILE_SIZE_MB=10
+   FILE_RETENTION_MINUTES=30
+   ```
+
+3. Start the development server:
    ```
    bun run dev
    ```
 
-3. For local testing with the Express server:
+4. For local testing with the Express server:
    ```
    bun run server
    ```
 
 ## Serverless Deployment
 
-The application is configured to work with serverless platforms like Vercel and Netlify. Choose one of the following deployment options:
+The application is configured to work with serverless platforms and uses temporary encrypted file storage instead of external CDNs.
 
 ### Vercel Deployment
 
 1. Push your code to GitHub
 2. Import your repository in Vercel
 3. Configure the following environment variables:
+   - `VITE_API_URL`: Your application URL (e.g., https://your-app.vercel.app)
    - `SCREENSHOT_API_KEY`: Your screenshot API service key
-   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
-   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
-   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+   - `FILE_ENCRYPTION_KEY`: A secure 32-character encryption key
+   - `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 10)
+   - `FILE_RETENTION_MINUTES`: How long to keep files (default: 30)
 4. Deploy
 
 ### Netlify Deployment
@@ -47,11 +66,36 @@ The application is configured to work with serverless platforms like Vercel and 
 1. Push your code to GitHub
 2. Import your repository in Netlify
 3. Configure the following environment variables:
+   - `VITE_API_URL`: Your application URL (e.g., https://your-app.netlify.app)
    - `SCREENSHOT_API_KEY`: Your screenshot API service key
-   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
-   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
-   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+   - `FILE_ENCRYPTION_KEY`: A secure 32-character encryption key
+   - `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 10)
+   - `FILE_RETENTION_MINUTES`: How long to keep files (default: 30)
 4. Deploy
+
+## Secure File Handling
+
+The application uses a secure approach to file handling:
+
+1. **Encrypted Storage**: All uploaded files are encrypted using AES-256-CBC before being stored
+2. **Temporary Storage**: Files are stored in the server's temporary directory
+3. **Automatic Cleanup**: Files are automatically deleted after a configurable retention period
+4. **Secure Access**: Files can only be accessed with a secure random token
+5. **No External CDNs**: All files stay within your serverless environment
+
+## Security Considerations
+
+- The `FILE_ENCRYPTION_KEY` should be a secure random 32-character string
+- Files are automatically deleted after the retention period (default: 30 minutes)
+- Security headers are set to prevent common web vulnerabilities
+- Token-based authentication is used for file access
+
+## Notes
+
+- The serverless functions have been optimized to work within the free tier limits of Vercel and Netlify
+- The application supports both direct image uploads and URL-based screenshots
+- Maximum file upload size is configurable (default: 10MB)
+- For heavy usage, consider extending the file retention period or implementing a more robust storage solution
 
 ## Serverless Architecture
 
