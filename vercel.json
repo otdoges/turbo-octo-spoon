@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "framework": "vite",
+  "outputDirectory": "dist",
+  "buildCommand": "bun run build",
+  "devCommand": "bun run dev",
+  "installCommand": "bun install",
   "routes": [
     {
       "src": "/api/(.*)",
@@ -22,12 +27,15 @@
       }
     },
     {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "buildCommand": "bun run build",
-  "devCommand": "bun run dev",
-  "installCommand": "bun install",
-  "framework": "vite"
+  ]
 }

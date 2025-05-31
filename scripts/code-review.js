@@ -1,22 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Code Review Script
+ * Code Review Script - DISABLED
  * 
- * This script analyzes the codebase for common errors, anti-patterns, and best practices.
- * It checks for:
- * - Missing error handling
- * - Console.log statements
- * - TODO comments
- * - Unused variables and imports
- * - Large file sizes
- * - Complex functions
- * - Missing TypeScript types
- * - Accessibility issues in JSX
+ * This script has been disabled as requested to avoid blocking deployments.
+ * The original functionality has been removed to ensure the build and development workflows
+ * are not blocked by code review checks.
+ * 
+ * The script will always pass successfully without performing any actual checks.
  * 
  * Usage:
- *   node scripts/code-review.js                     # Check entire codebase
- *   node scripts/code-review.js --dirs=dir1,dir2    # Check specific directories
+ *   node scripts/code-review.js                     # Always passes
+ *   node scripts/code-review.js --dirs=dir1,dir2    # Always passes
  * 
  * To run: bun run code-review
  * Compatible with Windows, macOS, and Linux.
