@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle, Upload, Globe } from 'lucide-react';
 
 const NewTransformation = () => {
@@ -10,6 +10,7 @@ const NewTransformation = () => {
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,31 +52,77 @@ const NewTransformation = () => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     setIsAnalyzing(true);
     setScreenshotError(null);
     
     const file = e.target.files[0];
-    const reader = new FileReader();
     
-    reader.onload = () => {
-      // Set the uploaded image as the screenshot
-      setScreenshotUrl(reader.result as string);
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      setScreenshotError('Only image files are allowed');
+      return;
+    }
+    
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setScreenshotError('File size exceeds 10MB limit');
+      return;
+    }
+    
+    // Create FormData object to send the file
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+      // Upload the file to the server
+      const response = await fetch('http://localhost:3001/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
       
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to upload image');
+      }
+      
+      // Save the image URL
+      setScreenshotUrl(`http://localhost:3001${data.imageUrl}`);
+      
+      // Call the analyze endpoint
+      const analysisResponse = await fetch('http://localhost:3001/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageUrl: data.imageUrl }),
+      });
+      
+      const analysisData = await analysisResponse.json();
+      
+      if (!analysisResponse.ok) {
+        throw new Error(analysisData.message || 'Failed to analyze image');
+      }
+      
+      // Process analysis data here (to be implemented with AI integration)
+      console.log('Analysis results:', analysisData.analysis);
+      
+      // Continue to next step
       setTimeout(() => {
         setIsAnalyzing(false);
         setCurrentStep(2);
       }, 1000);
-    };
-    
-    reader.onerror = () => {
-      setScreenshotError('Failed to read the uploaded file');
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
+        ? (error as Error).message 
+        : 'Failed to process image');
       setIsAnalyzing(false);
-    };
-    
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleStyleSelection = (style: string) => {
@@ -94,6 +141,56 @@ const NewTransformation = () => {
       setCurrentStep(currentStep + 1);
     }
   };
+
+  // Handle drag events
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      
+      // Check if file is an image
+      if (!file.type.startsWith('image/')) {
+        setScreenshotError('Only image files are allowed');
+        return;
+      }
+      
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setScreenshotError('File size exceeds 10MB limit');
+        return;
+      }
+      
+      // Create a synthetic event to use with handleFileUpload
+      const syntheticEvent = {
+        target: {
+          files: e.dataTransfer.files
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      
+      handleFileUpload(syntheticEvent);
+    }
+  }, []);
 
   // Step indicator component
   const StepIndicator = () => (
@@ -243,7 +340,15 @@ const NewTransformation = () => {
                   </label>
                   <div 
                     onClick={() => fileInputRef.current?.click()} 
-                    className="border-2 border-dashed border-white/10 rounded-xl bg-white/5 p-8 text-center cursor-pointer hover:bg-white/10 transition-colors"
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                      isDragging 
+                        ? 'border-purple-500 bg-purple-500/10' 
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
                   >
                     <input 
                       ref={fileInputRef}
@@ -254,8 +359,10 @@ const NewTransformation = () => {
                       onChange={handleFileUpload}
                       disabled={isAnalyzing}
                     />
-                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-300 font-medium mb-1">Click to upload or drag and drop</p>
+                    <Upload className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-purple-400' : 'text-gray-400'}`} />
+                    <p className="text-gray-300 font-medium mb-1">
+                      {isDragging ? 'Drop image here' : 'Click to upload or drag and drop'}
+                    </p>
                     <p className="text-gray-400 text-sm">PNG, JPG or WEBP (max. 10MB)</p>
                   </div>
                 </div>
