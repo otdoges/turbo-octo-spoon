@@ -59,18 +59,15 @@ exports.handler = async function(event, context) {
       }
       
       try {
-        // Save file securely
-        const { fileId, accessToken, expiresAt } = await saveFile(fileBuffer, fileName);
+        // Save file to Cloudinary
+        const { fileId, accessToken, expiresAt, url } = await saveFile(fileBuffer, fileName);
         
-        // Create secure file URL
-        const fileUrl = `/.netlify/functions/file?id=${fileId}&token=${accessToken}`;
-        
-        // Return the secure URL
+        // Return the direct URL from Cloudinary
         resolve({
           statusCode: 200,
           body: JSON.stringify({
             success: true,
-            imageUrl: fileUrl,
+            imageUrl: url, // Direct Cloudinary URL
             fileId: fileId,
             expiresAt: expiresAt.toISOString(),
             message: 'Image uploaded successfully'

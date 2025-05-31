@@ -1,67 +1,69 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { getFile, deleteFile } = require('./utils/secureStorage');
+const { getFile } = require('./utils/secureStorage');
+const crypto = require('crypto');
 
 exports.handler = async function(event, context) {
-  // Extract file ID and token from query parameters
-  const id = event.queryStringParameters?.id;
-  const token = event.queryStringParameters?.token;
+  // Only allow GET requests
+  if (event.httpMethod !== 'GET') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
+
+  // Add CSRF protection headers
+  const headers = {
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; img-src 'self' data: https://res.cloudinary.com;",
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  };
+
+  // Get the file ID and access token from the query
+  const fileId = event.queryStringParameters?.id;
+  const accessToken = event.queryStringParameters?.token;
   
-  if (!id || !token) {
+  if (!fileId || !accessToken) {
     return {
       statusCode: 400,
+      headers,
       body: JSON.stringify({ error: 'Missing file ID or access token' })
     };
   }
   
+  // Basic input validation
+  if (!/^[a-zA-Z0-9-]+$/.test(fileId) || accessToken.length < 32) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: 'Invalid file ID or access token format' })
+    };
+  }
+  
   try {
-    // Get the file
-    const fileBuffer = await getFile(id, token);
+    // Perform token validation and get file details
+    const fileDetails = await getFile(fileId, accessToken);
     
-    // Determine content type based on file extension
-    const files = await fs.promises.readdir(path.join(os.tmpdir(), 'luminaweb-temp'));
-    const targetFile = files.find(f => f.startsWith(id));
-    
-    if (!targetFile) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'File not found' })
-      };
+    if (!fileDetails || !fileDetails.url) {
+      throw new Error('Unable to retrieve file');
     }
     
-    const extension = targetFile.split('.').pop().toLowerCase();
-    
-    let contentType = 'application/octet-stream';
-    if (extension === 'jpg' || extension === 'jpeg') contentType = 'image/jpeg';
-    else if (extension === 'png') contentType = 'image/png';
-    else if (extension === 'gif') contentType = 'image/gif';
-    else if (extension === 'webp') contentType = 'image/webp';
-    
-    // Encode the file as base64
-    const base64File = fileBuffer.toString('base64');
-    
-    // Optional: Delete file after serving (uncomment if you want files to be one-time use)
-    // await deleteFile(id);
-    
-    // Return the file with appropriate headers
+    // Redirect to the Cloudinary URL
     return {
-      statusCode: 200,
+      statusCode: 302,
       headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'no-store, max-age=0',
-        'Content-Security-Policy': "default-src 'self'",
-        'X-Content-Type-Options': 'nosniff'
+        ...headers,
+        'Location': fileDetails.url
       },
-      body: base64File,
-      isBase64Encoded: true
+      body: ''
     };
-    
   } catch (error) {
-    console.error('File serving error:', error);
+    console.error('File access error:', error);
     return {
       statusCode: 404,
-      body: JSON.stringify({ error: 'File not found or expired' })
+      headers,
+      body: JSON.stringify({
+        error: 'File not found or expired',
+        message: error.message
+      })
     };
   }
 }; 

@@ -183,42 +183,196 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   }
 });
 
-// Analyze image endpoint (placeholder for future AI integration)
-app.post('/api/analyze', (req, res) => {
-  const { imageUrl } = req.body;
+// Analyze image or website endpoint with real analysis using Playwright
+app.post('/api/analyze', async (req, res) => {
+  const { imageUrl, url } = req.body;
   
-  if (!imageUrl) {
-    return res.status(400).json({ error: 'Image URL is required' });
+  // Check if either imageUrl or direct url is provided
+  if (!imageUrl && !url) {
+    return res.status(400).json({ error: 'Either image URL or website URL is required' });
   }
+
+  let browser = null;
+  let targetUrl = url;
   
-  // This is a placeholder for the AI analysis that will be implemented later
-  // For now, we'll just return some mock data
-  
-  console.log(`Analyzing image: ${imageUrl}`);
-  
-  // Simulate processing time
-  setTimeout(() => {
+  try {
+    console.log(`Analyzing ${url ? 'website' : 'image'}: ${url || imageUrl}`);
+    
+    // If only image URL is provided (no direct URL), we'll create a simple HTML page to display it
+    if (!url && imageUrl) {
+      // Use the actual image URL for analysis
+      // We don't need to create a temp HTML page as we'll analyze the image directly
+      targetUrl = imageUrl;
+    }
+    
+    // Launch browser
+    browser = await chromium.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Navigate to the URL
+    await page.goto(targetUrl, { 
+      waitUntil: 'networkidle', 
+      timeout: 30000 
+    });
+    
+    // Perform actual analysis using Playwright
+    const analysis = await analyzePageWithPlaywright(page);
+    
+    await browser.close();
+    
     res.json({
       success: true,
-      analysis: {
-        colorPalette: ['#1a1a2e', '#16213e', '#0f3460', '#e94560'],
-        style: 'modern',
-        layout: 'asymmetric',
-        elements: {
-          header: { position: 'top', style: 'fixed' },
-          navigation: { type: 'horizontal', items: 5 },
-          footer: { size: 'medium' }
-        },
-        recommendations: {
-          colorAdjustments: 'Enhance contrast for better readability',
-          layoutImprovements: 'Consider more whitespace between sections',
-          typographyChanges: 'Increase font size for better mobile experience'
-        }
-      },
-      message: 'Image analyzed successfully'
+      analysis,
+      message: 'Analysis completed successfully'
     });
-  }, 2000);
+    
+  } catch (error) {
+    console.error('Analysis error:', error);
+    
+    if (browser) {
+      await browser.close();
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to analyze', 
+      message: error.message 
+    });
+  }
 });
+
+// Function to analyze a page using Playwright
+async function analyzePageWithPlaywright(page) {
+  // Get page title
+  const title = await page.title();
+  
+  // Get page metadata
+  const description = await page.evaluate(() => {
+    const metaDescription = document.querySelector('meta[name="description"]');
+    return metaDescription ? metaDescription.getAttribute('content') : '';
+  });
+  
+  // Extract color palette
+  const colorPalette = await page.evaluate(() => {
+    const colors = new Set();
+    const elements = document.querySelectorAll('*');
+    
+    elements.forEach(el => {
+      const style = window.getComputedStyle(el);
+      const backgroundColor = style.backgroundColor;
+      const color = style.color;
+      
+      // Only add valid, non-transparent colors
+      if (backgroundColor && !backgroundColor.includes('rgba(0, 0, 0, 0)') && backgroundColor !== 'transparent') {
+        colors.add(backgroundColor);
+      }
+      
+      if (color && color !== 'rgb(0, 0, 0)' && color !== 'rgb(255, 255, 255)') {
+        colors.add(color);
+      }
+    });
+    
+    // Convert to array and take only first 5 colors
+    return [...colors].slice(0, 5);
+  });
+  
+  // Analyze layout
+  const layoutInfo = await page.evaluate(() => {
+    const bodyStyle = window.getComputedStyle(document.body);
+    const hasHeader = !!document.querySelector('header') || 
+                      !!document.querySelector('[role="banner"]') ||
+                      !!document.querySelector('nav');
+                      
+    const hasFooter = !!document.querySelector('footer') || 
+                      !!document.querySelector('[role="contentinfo"]');
+                      
+    const hasMultipleColumns = !!document.querySelector('.container') || 
+                              !!document.querySelector('.row') ||
+                              !!document.querySelector('.grid');
+                              
+    const layoutType = hasMultipleColumns ? 'grid' : 'single-column';
+    
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      hasHeader,
+      hasFooter,
+      layoutType,
+      backgroundColor: bodyStyle.backgroundColor,
+      fontFamily: bodyStyle.fontFamily
+    };
+  });
+  
+  // Analyze navigation
+  const navigationItems = await page.evaluate(() => {
+    const navElements = document.querySelectorAll('nav a, header a, [role="navigation"] a');
+    return Array.from(navElements).map(el => ({
+      text: el.textContent.trim(),
+      href: el.getAttribute('href')
+    })).slice(0, 10); // Limit to 10 items
+  });
+  
+  // Extract dominant font information
+  const fontInfo = await page.evaluate(() => {
+    const elements = document.querySelectorAll('body, h1, h2, h3, p, span, a, button');
+    const fontFamilies = {};
+    const fontSizes = {};
+    
+    elements.forEach(el => {
+      const style = window.getComputedStyle(el);
+      const fontFamily = style.fontFamily;
+      const fontSize = style.fontSize;
+      
+      fontFamilies[fontFamily] = (fontFamilies[fontFamily] || 0) + 1;
+      fontSizes[fontSize] = (fontSizes[fontSize] || 0) + 1;
+    });
+    
+    // Find most common font family and size
+    let dominantFont = Object.keys(fontFamilies).reduce((a, b) => 
+      fontFamilies[a] > fontFamilies[b] ? a : b, Object.keys(fontFamilies)[0]);
+      
+    let dominantSize = Object.keys(fontSizes).reduce((a, b) => 
+      fontSizes[a] > fontSizes[b] ? a : b, Object.keys(fontSizes)[0]);
+    
+    return {
+      dominantFont,
+      dominantSize,
+      fontVariety: Object.keys(fontFamilies).length
+    };
+  });
+  
+  // Generate style recommendations
+  let stylePreference = 'modern'; // Default
+  
+  if (layoutInfo.layoutType === 'grid' && fontInfo.fontVariety < 3) {
+    stylePreference = 'minimalist';
+  } else if (colorPalette.length > 3) {
+    stylePreference = 'vibrant';
+  } else if (fontInfo.dominantFont.includes('serif')) {
+    stylePreference = 'classic';
+  }
+  
+  // Compile the analysis
+  return {
+    meta: {
+      title,
+      description
+    },
+    colorPalette,
+    layoutInfo,
+    navigationItems,
+    fontInfo,
+    stylePreference,
+    recommendations: {
+      colorAdjustments: `Based on the ${colorPalette.length} main colors detected, consider a more ${colorPalette.length > 3 ? 'focused' : 'diverse'} palette`,
+      layoutImprovements: layoutInfo.hasHeader && layoutInfo.hasFooter ? 'Layout structure looks good' : 'Consider adding proper header and footer sections',
+      typographyChanges: `Current dominant font (${fontInfo.dominantFont.split(',')[0]}) is ${fontInfo.fontVariety > 2 ? 'one of many - consider reducing variety' : 'consistently used'}`
+    }
+  };
+}
 
 // Start server with port fallback
 const startServer = (attemptPort) => {
