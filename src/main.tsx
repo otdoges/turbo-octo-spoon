@@ -2,12 +2,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { ClerkProviderWithConvex } from './components/ClerkProviderWithConvex';
+import { ClerkAuthProvider } from './components/ClerkAuthProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProviderWithConvex>
+    <ClerkAuthProvider>
       <App />
-    </ClerkProviderWithConvex>
+    </ClerkAuthProvider>
   </StrictMode>
 );

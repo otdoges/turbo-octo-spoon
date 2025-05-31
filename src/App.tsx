@@ -38,7 +38,7 @@ function App() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/" element={
-          <div className="min-h-screen bg-gradient-to-b from-gray-900 via-indigo-900 to-purple-800 text-white overflow-hidden">
+          <div className="min-h-screen bg-gradient-to-b from-gray-900 via-indigo-900 to-purple-800 text-white">
             <Navbar />
             <main>
               <Hero />

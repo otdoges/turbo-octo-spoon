@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [MillionLint.vite({
-      enabled: true
+      enabled: false
     }), react()],
     optimizeDeps: {
       exclude: ['lucide-react'],
