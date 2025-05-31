@@ -116,4 +116,46 @@ The application uses the following serverless functions:
 - The serverless functions have been optimized to work within the free tier limits of Vercel and Netlify
 - The application supports both direct image uploads and URL-based screenshots
 - Maximum file upload size is 10MB
-- For heavy usage, consider upgrading to paid plans on the respective platforms 
+- For heavy usage, consider upgrading to paid plans on the respective platforms
+
+## Code Review Tool
+
+This project includes a code review tool that helps maintain code quality by identifying common issues and anti-patterns in the codebase.
+
+### Running the Code Review
+
+To run the code review tool:
+
+```bash
+bun run code-review
+```
+
+### What It Checks For
+
+The code review tool analyzes the codebase for:
+
+- **Console statements**: Identifies console.log/error/warn statements that might be forgotten in production code
+- **Missing accessibility attributes**: Finds HTML elements that might need accessibility improvements
+- **Long functions**: Highlights functions that are too complex and could be broken down
+- **Large files**: Identifies files that may be doing too much and could be split
+- **Hardcoded API endpoints**: Finds hardcoded URLs that should be in environment variables
+- **Empty useEffect dependency arrays**: Identifies React useEffect hooks that might cause unexpected behavior
+- **Nested ternary operators**: Finds complex nested ternaries that reduce code readability
+
+### Understanding the Results
+
+The output includes:
+
+1. **File-by-file breakdown**: Each issue is shown with its location and context
+2. **Summary of most common issues**: The top 5 most frequently occurring issues
+3. **Recommendations**: Specific suggestions for addressing each type of issue
+
+### Integrating with Your Workflow
+
+The code review tool is integrated into the pre-commit hook and is run before each release. To run it manually during development, use:
+
+```bash
+bun run code-review
+```
+
+It's recommended to address high-priority issues (errors) immediately, while warnings can be addressed over time as part of ongoing code maintenance. 

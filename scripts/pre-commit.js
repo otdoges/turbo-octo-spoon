@@ -213,34 +213,62 @@ function scanDirectory(dirPath, results = []) {
   return results;
 }
 
-// Main function
-function main() {
-  console.log(chalk.blue('🔒 Running security checks before commit...'));
+async function main() {
+  console.log(chalk.cyan('🔒 Running pre-commit security checks...'));
   
-  const results = scanDirectory(rootDir);
+  // Run the security check
+  const filesWithIssues = [];
+  const totalIssues = [];
   
-  if (results.length === 0) {
-    console.log(chalk.green('✅ No security issues found!'));
-    process.exit(0);
-  }
-  
-  console.log(chalk.red(`❌ Found ${results.length} files with security issues:`));
-  
-  results.forEach(result => {
-    console.log(chalk.yellow(`\nFile: ${result.file}`));
-    
-    result.issues.forEach(issue => {
-      const severityColor = 
-        issue.severity === 'HIGH' ? chalk.red :
-        issue.severity === 'MEDIUM' ? chalk.yellow :
-        chalk.blue;
-      
-      console.log(`  - ${severityColor(issue.severity)}: ${issue.type} - ${issue.message}`);
-    });
+  scanDirectory(rootDir).forEach(result => {
+    if (result.issues.length > 0) {
+      filesWithIssues.push(result);
+      totalIssues.push(...result.issues);
+    }
   });
   
-  // Exit with error code to prevent commit
-  process.exit(1);
+  // Run code review check
+  try {
+    console.log(chalk.cyan('🔍 Running code review checks...'));
+    const { execSync } = await import('child_process');
+    const codeReviewResult = execSync('node scripts/code-review.js', { stdio: 'pipe', encoding: 'utf8' });
+    
+    // Extract just error count from code review output (ignoring warnings/info)
+    const errorMatch = codeReviewResult.match(/Found (\d+) errors/);
+    const codeReviewErrors = errorMatch ? parseInt(errorMatch[1]) : 0;
+    
+    if (codeReviewErrors > 0) {
+      console.error(chalk.red(`❌ Code review found ${codeReviewErrors} critical issues that must be fixed!`));
+      console.error(codeReviewResult);
+      process.exit(1);
+    }
+  } catch (error) {
+    // If code review script fails with non-zero exit code, it found errors
+    console.error(chalk.red('❌ Code review check failed with errors!'));
+    if (error.stdout) console.error(error.stdout);
+    if (error.stderr) console.error(error.stderr);
+    process.exit(1);
+  }
+  
+  // Display results
+  if (filesWithIssues.length > 0) {
+    console.error(chalk.red(`\n❌ Found ${totalIssues.length} security issues in ${filesWithIssues.length} files:`));
+    
+    filesWithIssues.forEach(fileResult => {
+      console.error(chalk.yellow(`\nFile: ${fileResult.file}`));
+      
+      fileResult.issues.forEach(issue => {
+        const severityColor = issue.severity === 'HIGH' ? chalk.red : chalk.yellow;
+        console.error(`  ${severityColor(`[${issue.severity}]`)} ${issue.type}: ${issue.message}`);
+      });
+    });
+    
+    console.error(chalk.red('\n❌ Pre-commit check failed! Please fix the issues above before committing.'));
+    process.exit(1);
+  } else {
+    console.log(chalk.green('✅ Security check passed! No issues found.'));
+    process.exit(0);
+  }
 }
 
 // Run the main function
