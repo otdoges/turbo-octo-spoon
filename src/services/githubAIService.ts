@@ -1,9 +1,7 @@
-import OpenAI from "openai";
 import 'dotenv/config';
 
-// Get GitHub token from environment variables - never hardcoded
-const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN || process.env.GITHUB_TOKEN || '';
-const GITHUB_AI_ENDPOINT = "https://models.github.ai/inference";
+// Base API URL for server endpoints
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Available models
 export const GITHUB_MODELS = {
@@ -11,24 +9,29 @@ export const GITHUB_MODELS = {
   ADVANCED: "openai/gpt-4.1"
 };
 
-// Default model setting
-const DEFAULT_MODEL = GITHUB_MODELS.MINI;
+// Helper function to call our secure API endpoint
+async function callGitHubAPI(data: Record<string, unknown>): Promise<string> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/github`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
-// Check if token is available
-if (!GITHUB_TOKEN) {
-  console.error('GitHub token is missing. Please check your .env file and ensure you have added GITHUB_TOKEN with models:read permissions.');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to get response from GitHub AI API');
+    }
+
+    const responseData = await response.json();
+    return responseData.result;
+  } catch (error) {
+    console.error('Error calling GitHub AI API:', error);
+    throw error;
+  }
 }
-
-// Initialize OpenAI client with GitHub AI endpoint
-const createClient = () => {
-  if (!GITHUB_TOKEN) return null;
-  
-  return new OpenAI({ 
-    baseURL: GITHUB_AI_ENDPOINT, 
-    apiKey: GITHUB_TOKEN
-  });
-};
-
 
 /**
  * Error analysis and suggestion generation
@@ -39,30 +42,14 @@ export const analyzeCodeError = async (
   language: string = 'javascript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to analyze error: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are an expert software engineer specializing in fixing ${language} errors. Your task is to analyze code errors, explain the root cause, and provide corrected code.`
-        },
-        { 
-          role: "user", 
-          content: `I'm getting the following error in my ${language} code:\n\n${errorMessage}\n\nHere's the code:\n\n\`\`\`${language}\n${code}\n\`\`\``
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'analyze',
+      code,
+      errorMessage,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No analysis returned";
   } catch (error) {
     console.error("Error analyzing code:", error);
     return `Error analyzing code: ${error instanceof Error ? error.message : String(error)}`;
@@ -78,30 +65,14 @@ export const generateImplementation = async (
   language: string = 'typescript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to generate implementation: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are an expert ${language} developer. Create clean, well-structured, and efficient code based on requirements.`
-        },
-        { 
-          role: "user", 
-          content: `I need to implement the following functionality in ${language}:\n\n${description}${context ? `\n\nAdditional context:\n${context}` : ''}`
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'implement',
+      description,
+      context,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No implementation generated";
   } catch (error) {
     console.error("Error generating implementation:", error);
     return `Error generating implementation: ${error instanceof Error ? error.message : String(error)}`;
@@ -117,30 +88,14 @@ export const refactorCode = async (
   language: string = 'typescript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to refactor code: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are an expert ${language} developer specializing in code refactoring. Your task is to improve code quality, readability, and performance.`
-        },
-        { 
-          role: "user", 
-          content: `I need to refactor the following ${language} code with these goals: ${goals}\n\n\`\`\`${language}\n${code}\n\`\`\``
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'refactor',
+      code,
+      goals,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No refactoring suggestions returned";
   } catch (error) {
     console.error("Error refactoring code:", error);
     return `Error refactoring code: ${error instanceof Error ? error.message : String(error)}`;
@@ -155,30 +110,13 @@ export const analyzeCodeSecurity = async (
   language: string = 'typescript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to analyze code security: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are a security expert specializing in identifying vulnerabilities in ${language} code. Analyze code for security issues and provide recommendations.`
-        },
-        { 
-          role: "user", 
-          content: `Please analyze this ${language} code for security vulnerabilities:\n\n\`\`\`${language}\n${code}\n\`\`\``
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'security',
+      code,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No security analysis returned";
   } catch (error) {
     console.error("Error analyzing code security:", error);
     return `Error analyzing security: ${error instanceof Error ? error.message : String(error)}`;
@@ -194,30 +132,14 @@ export const reviewCode = async (
   language: string = 'typescript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to review code: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are an expert code reviewer with extensive experience in ${language}. Provide thorough, constructive feedback on code quality, performance, and adherence to requirements.`
-        },
-        { 
-          role: "user", 
-          content: `Please review this ${language} code${requirements ? ` against these requirements: ${requirements}` : ''}:\n\n\`\`\`${language}\n${code}\n\`\`\``
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'review',
+      code,
+      requirements,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No review returned";
   } catch (error) {
     console.error("Error reviewing code:", error);
     return `Error reviewing code: ${error instanceof Error ? error.message : String(error)}`;
@@ -233,30 +155,14 @@ export const generateTests = async (
   language: string = 'typescript',
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to generate tests: GitHub token not configured";
-  }
-
-  // Select model based on parameter
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    const response = await client.chat.completions.create({
-      messages: [
-        { 
-          role: "developer", 
-          content: `You are an expert in writing unit tests using ${testFramework} for ${language} code. Create comprehensive tests that cover all functionality, edge cases, and ensure high code coverage.`
-        },
-        { 
-          role: "user", 
-          content: `Please generate unit tests using ${testFramework} for this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``
-        }
-      ],
-      model: modelName
+    return await callGitHubAPI({
+      type: 'test',
+      code,
+      testFramework,
+      language,
+      useAdvancedModel
     });
-
-    return response.choices[0].message.content || "No tests generated";
   } catch (error) {
     console.error("Error generating tests:", error);
     return `Error generating tests: ${error instanceof Error ? error.message : String(error)}`;
@@ -270,40 +176,12 @@ export const chatWithAI = async (
   messages: Array<{role: string, content: string}>,
   useAdvancedModel: boolean = false
 ): Promise<string> => {
-  const client = createClient();
-  if (!client) {
-    return "Unable to chat: GitHub token not configured";
-  }
-
-  // Use more advanced model if requested
-  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
-
   try {
-    // Format messages properly for the API with correct typing
-    const formattedMessages = messages.map(msg => {
-      // For GitHub's API, valid roles are 'user', 'assistant', or 'system'
-      // For 'system', we map to 'user' with a special prefix
-      if (msg.role === 'user') {
-        return { role: 'user' as const, content: msg.content };
-      } else if (msg.role === 'assistant') {
-        return { role: 'assistant' as const, content: msg.content };
-      } else {
-        // For system or any other role, map to user with a prefix
-        return { 
-          role: 'user' as const, 
-          content: msg.role === 'system' 
-            ? `[As an AI developer]: ${msg.content}` 
-            : msg.content 
-        };
-      }
+    return await callGitHubAPI({
+      type: 'chat',
+      messages,
+      useAdvancedModel
     });
-
-    const response = await client.chat.completions.create({
-      messages: formattedMessages,
-      model: modelName
-    });
-
-    return response.choices[0].message.content || "No response generated";
   } catch (error) {
     console.error("Error chatting with AI:", error);
     return `Error chatting with AI: ${error instanceof Error ? error.message : String(error)}`;
