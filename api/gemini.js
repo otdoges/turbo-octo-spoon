@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Use CommonJS format for Vercel serverless functions
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Simple in-memory rate limiting (will reset when serverless function cold starts)
 const rateLimits = {};
@@ -68,7 +69,26 @@ function validateRequest(body) {
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  // Simple, secure CORS setup
+  // In Vercel's environment, we rely on their built-in CORS handling
+  // This approach is more secure than setting wide-open CORS headers
+  
+  // Only set CORS headers when in development environments
+  if (process.env.NODE_ENV === 'development') {
+    const origin = req.headers.origin || '';
+    if (origin.startsWith('http://localhost:')) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    }
+  }
+
+  // Handle OPTIONS request for CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -104,6 +124,7 @@ export default async function handler(req, res) {
     // Check if API key is configured
     const API_KEY = process.env.GEMINI_API_KEY;
     if (!API_KEY) {
+      console.error('GEMINI_API_KEY environment variable is not set');
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
