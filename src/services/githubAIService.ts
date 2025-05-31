@@ -4,7 +4,15 @@ import 'dotenv/config';
 // Get GitHub token from environment variables - never hardcoded
 const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN || process.env.GITHUB_TOKEN || '';
 const GITHUB_AI_ENDPOINT = "https://models.github.ai/inference";
-const DEFAULT_MODEL = "openai/o4-mini"; // Default model, can be changed for different use cases
+
+// Available models
+export const GITHUB_MODELS = {
+  MINI: "openai/o4-mini",
+  ADVANCED: "openai/gpt-4.1"
+};
+
+// Default model setting
+const DEFAULT_MODEL = GITHUB_MODELS.MINI;
 
 // Check if token is available
 if (!GITHUB_TOKEN) {
@@ -28,12 +36,16 @@ const createClient = () => {
 export const analyzeCodeError = async (
   code: string,
   errorMessage: string,
-  language: string = 'javascript'
+  language: string = 'javascript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to analyze error: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -47,7 +59,7 @@ export const analyzeCodeError = async (
           content: `I'm getting the following error in my ${language} code:\n\n${errorMessage}\n\nHere's the code:\n\n\`\`\`${language}\n${code}\n\`\`\``
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No analysis returned";
@@ -63,12 +75,16 @@ export const analyzeCodeError = async (
 export const generateImplementation = async (
   description: string,
   context: string = '',
-  language: string = 'typescript'
+  language: string = 'typescript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to generate implementation: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -82,7 +98,7 @@ export const generateImplementation = async (
           content: `I need to implement the following functionality in ${language}:\n\n${description}${context ? `\n\nAdditional context:\n${context}` : ''}`
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No implementation generated";
@@ -98,12 +114,16 @@ export const generateImplementation = async (
 export const refactorCode = async (
   code: string,
   goals: string,
-  language: string = 'typescript'
+  language: string = 'typescript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to refactor code: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -117,7 +137,7 @@ export const refactorCode = async (
           content: `I need to refactor the following ${language} code with these goals: ${goals}\n\n\`\`\`${language}\n${code}\n\`\`\``
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No refactoring suggestions returned";
@@ -132,12 +152,16 @@ export const refactorCode = async (
  */
 export const analyzeCodeSecurity = async (
   code: string,
-  language: string = 'typescript'
+  language: string = 'typescript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to analyze code security: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -151,7 +175,7 @@ export const analyzeCodeSecurity = async (
           content: `Please analyze this ${language} code for security vulnerabilities:\n\n\`\`\`${language}\n${code}\n\`\`\``
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No security analysis returned";
@@ -167,12 +191,16 @@ export const analyzeCodeSecurity = async (
 export const reviewCode = async (
   code: string,
   requirements: string = '',
-  language: string = 'typescript'
+  language: string = 'typescript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to review code: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -186,7 +214,7 @@ export const reviewCode = async (
           content: `Please review this ${language} code${requirements ? ` against these requirements: ${requirements}` : ''}:\n\n\`\`\`${language}\n${code}\n\`\`\``
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No review returned";
@@ -202,12 +230,16 @@ export const reviewCode = async (
 export const generateTests = async (
   code: string,
   testFramework: string = 'jest',
-  language: string = 'typescript'
+  language: string = 'typescript',
+  useAdvancedModel: boolean = false
 ): Promise<string> => {
   const client = createClient();
   if (!client) {
     return "Unable to generate tests: GitHub token not configured";
   }
+
+  // Select model based on parameter
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     const response = await client.chat.completions.create({
@@ -221,7 +253,7 @@ export const generateTests = async (
           content: `Please generate unit tests using ${testFramework} for this ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\``
         }
       ],
-      model: DEFAULT_MODEL
+      model: modelName
     });
 
     return response.choices[0].message.content || "No tests generated";
@@ -244,7 +276,7 @@ export const chatWithAI = async (
   }
 
   // Use more advanced model if requested
-  const modelName = useAdvancedModel ? "openai/gpt-4.1" : DEFAULT_MODEL;
+  const modelName = useAdvancedModel ? GITHUB_MODELS.ADVANCED : DEFAULT_MODEL;
 
   try {
     // Format messages properly for the API with correct typing
@@ -285,5 +317,6 @@ export default {
   analyzeCodeSecurity,
   reviewCode,
   generateTests,
-  chatWithAI
+  chatWithAI,
+  GITHUB_MODELS
 }; 

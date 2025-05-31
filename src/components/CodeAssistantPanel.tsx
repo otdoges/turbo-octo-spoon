@@ -15,6 +15,7 @@ const CodeAssistantPanel = () => {
   const [requirements, setRequirements] = useState('');
   const [testFramework, setTestFramework] = useState('jest');
   const [language, setLanguage] = useState('typescript');
+  const [useAdvancedModel, setUseAdvancedModel] = useState(false);
   const [result, setResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,22 +28,22 @@ const CodeAssistantPanel = () => {
 
       switch (activeTool) {
         case 'analyze':
-          response = await githubAIService.analyzeCodeError(code, errorMessage, language);
+          response = await githubAIService.analyzeCodeError(code, errorMessage, language, useAdvancedModel);
           break;
         case 'implement':
-          response = await githubAIService.generateImplementation(description, context, language);
+          response = await githubAIService.generateImplementation(description, context, language, useAdvancedModel);
           break;
         case 'refactor':
-          response = await githubAIService.refactorCode(code, goals, language);
+          response = await githubAIService.refactorCode(code, goals, language, useAdvancedModel);
           break;
         case 'security':
-          response = await githubAIService.analyzeCodeSecurity(code, language);
+          response = await githubAIService.analyzeCodeSecurity(code, language, useAdvancedModel);
           break;
         case 'review':
-          response = await githubAIService.reviewCode(code, requirements, language);
+          response = await githubAIService.reviewCode(code, requirements, language, useAdvancedModel);
           break;
         case 'test':
-          response = await githubAIService.generateTests(code, testFramework, language);
+          response = await githubAIService.generateTests(code, testFramework, language, useAdvancedModel);
           break;
         default:
           response = 'Invalid tool selected';
@@ -300,24 +301,54 @@ const CodeAssistantPanel = () => {
       </div>
       
       {/* Language Selection */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Programming Language
-        </label>
-        <select
-          className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          <option value="typescript">TypeScript</option>
-          <option value="javascript">JavaScript</option>
-          <option value="python">Python</option>
-          <option value="java">Java</option>
-          <option value="csharp">C#</option>
-          <option value="go">Go</option>
-          <option value="ruby">Ruby</option>
-          <option value="php">PHP</option>
-        </select>
+      <div className="mb-6 flex flex-wrap gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Programming Language
+          </label>
+          <select
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+          >
+            <option value="typescript">TypeScript</option>
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+            <option value="csharp">C#</option>
+            <option value="go">Go</option>
+            <option value="ruby">Ruby</option>
+            <option value="php">PHP</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            AI Model
+          </label>
+          <div className="flex items-center space-x-4">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-indigo-600"
+                name="model"
+                checked={!useAdvancedModel}
+                onChange={() => setUseAdvancedModel(false)}
+              />
+              <span className="ml-2">O4 Mini (Faster)</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-indigo-600"
+                name="model"
+                checked={useAdvancedModel}
+                onChange={() => setUseAdvancedModel(true)}
+              />
+              <span className="ml-2">GPT-4.1 (More Powerful)</span>
+            </label>
+          </div>
+        </div>
       </div>
       
       {/* Dynamic Form */}
@@ -358,6 +389,9 @@ const CodeAssistantPanel = () => {
         <div className="mt-8">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Results</h3>
           <div className="p-5 bg-gray-50 border border-gray-200 rounded-md">
+            <div className="mb-2 text-xs text-gray-500">
+              Using model: {useAdvancedModel ? 'GPT-4.1' : 'O4 Mini'}
+            </div>
             <pre className="whitespace-pre-wrap font-mono text-sm">
               {result}
             </pre>
