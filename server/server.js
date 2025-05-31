@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -53,6 +54,56 @@ app.use(cors());
 app.use(express.json());
 app.use('/screenshots', express.static(screenshotsDir));
 app.use('/uploads', express.static(uploadsDir));
+
+// Generate nonce for CSP
+app.use((req, res, next) => {
+  // Generate a new random nonce value for each request
+  const nonce = crypto.randomBytes(16).toString('base64');
+  
+  // Store nonce for use in templates
+  res.locals.cspNonce = nonce;
+  
+  // Set CSP header with nonce and other directives
+  const cspHeader = {
+    'Content-Security-Policy': `default-src 'self'; 
+      script-src 'self' 'nonce-${nonce}'; 
+      style-src 'self' 'nonce-${nonce}' https://api.fontshare.com https://fonts.googleapis.com; 
+      font-src 'self' https://api.fontshare.com https://fonts.gstatic.com; 
+      img-src 'self' data: blob: https:; 
+      connect-src 'self' https://api.openai.com https://api.github.ai https://openrouter.ai https://api.clerk.com https://*.supabase.co https://api.screenshotapi.net; 
+      frame-src 'self';`
+      .replace(/\s+/g, ' ')
+      .trim()
+  };
+  
+  // Set security headers
+  res.set({
+    ...cspHeader,
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin'
+  });
+  
+  next();
+});
+
+// Middleware to replace CSP nonce placeholder in HTML
+app.use(express.static(path.join(__dirname, '../dist'), {
+  setHeaders: (res, filePath) => {
+    if (path.extname(filePath) === '.html') {
+      fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+          console.error('Error reading HTML file:', err);
+          return;
+        }
+        
+        // Replace nonce placeholder with actual nonce
+        const modifiedHtml = data.replace(/%%CSP_NONCE%%/g, res.locals.cspNonce);
+        res.send(modifiedHtml);
+      });
+    }
+  }
+}));
 
 // Screenshot endpoint
 app.post('/api/screenshot', async (req, res) => {

@@ -139,7 +139,7 @@ const ContentEnhancementPanel = () => {
           <div className="p-5 bg-white border border-gray-200 rounded-md">
             <div 
               className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: formatEnhancement(result.enhancement) }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatEnhancement(result.enhancement)) }}
             />
           </div>
         </div>

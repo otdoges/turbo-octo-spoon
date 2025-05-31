@@ -179,7 +179,7 @@ const ImageAnalysisPanel = () => {
           <div className="p-5 bg-white border border-gray-200 rounded-md">
             <div 
               className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: formatAnalysis(result.analysis) }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatAnalysis(result.analysis)) }}
             />
           </div>
         </div>

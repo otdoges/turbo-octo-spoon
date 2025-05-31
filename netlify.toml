@@ -7,6 +7,19 @@
   command = "bun run dev"
   targetPort = 5173
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'sha256-REPLACE_WITH_SCRIPT_HASH'; style-src 'self' 'sha256-REPLACE_WITH_STYLE_HASH' https://api.fontshare.com https://fonts.googleapis.com; font-src 'self' https://api.fontshare.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.openai.com https://api.github.ai https://openrouter.ai https://api.clerk.com https://*.supabase.co https://api.screenshotapi.net; frame-src 'self';"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
