@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid'; // For generating session IDs for analytics
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -18,6 +19,44 @@ import MySites from './dashboard/MySites';
 import Analytics from './dashboard/Analytics';
 import DashboardSettings from './dashboard/DashboardSettings';
 import Help from './dashboard/Help';
+import { useUser } from '@clerk/clerk-react';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// Supabase client initialization
+const supabaseUrlFromEnv = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKeyFromEnv = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+let supabase: SupabaseClient | null = null;
+
+if (typeof supabaseUrlFromEnv === 'string' && supabaseUrlFromEnv.length > 0 && 
+    typeof supabaseAnonKeyFromEnv === 'string' && supabaseAnonKeyFromEnv.length > 0) {
+  // Both are confirmed to be non-empty strings here
+  const finalSupabaseUrl: string = supabaseUrlFromEnv;
+  const finalSupabaseAnonKey: string = supabaseAnonKeyFromEnv;
+  supabase = createClient(finalSupabaseUrl, finalSupabaseAnonKey);
+} else {
+  console.error('Supabase URL or anonymous key is missing. Dashboard user info and analytics will not work. Check your .env file.');
+}
+
+const SESSION_ID_KEY = 'app_session_id';
+
+// Function to get or create a session ID for analytics
+const getSessionId = (): string => {
+  let sessionId = sessionStorage.getItem(SESSION_ID_KEY);
+  if (!sessionId) {
+    sessionId = uuidv4();
+    sessionStorage.setItem(SESSION_ID_KEY, sessionId);
+  }
+  return sessionId;
+};
+
+interface AnalyticsPageViewEvent {
+  event_type: 'page_view';
+  user_id?: string;
+  path: string;
+  session_id: string;
+  details?: Record<string, any>;
+}
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '' },
@@ -28,13 +67,78 @@ const sidebarItems = [
   { icon: HelpCircle, label: 'Help', path: 'help' },
 ];
 
+interface UserProfile {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
 const Dashboard = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
+  const { user, isSignedIn, isLoaded: clerkIsLoaded } = useUser();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const currentPath = location.pathname.split('/').pop();
 
+  useEffect(() => {
+    if (!supabase) {
+      console.log('Supabase client not initialized for Dashboard. Skipping user profile fetch.');
+      return;
+    }
+    if (clerkIsLoaded && isSignedIn && user && user.id) {
+      supabase
+        .from('users')
+        .select('first_name, last_name, email, avatar_url')
+        .eq('clerk_id', user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (error && error.code !== 'PGRST116') { // PGRST116: 0 rows
+            console.error('Error fetching user profile from Supabase:', error);
+            setUserProfile(null); // Clear profile on error
+          } else if (data) {
+            setUserProfile(data as UserProfile);
+          } else {
+            // User might not be in DB yet if UserSync hasn't run or failed
+            // Fallback to Clerk data if available, or show placeholders
+            setUserProfile({
+              first_name: user.firstName,
+              last_name: user.lastName,
+              email: user.primaryEmailAddress?.emailAddress || null,
+              avatar_url: user.imageUrl
+            });
+          }
+        });
+    } else if (clerkIsLoaded && !isSignedIn) {
+      setUserProfile(null); // Clear profile if user signs out
+    }
+  }, [user, isSignedIn, clerkIsLoaded]);
+
+  // Analytics: Track page views
+  useEffect(() => {
+    if (!supabase) {
+      console.warn('Supabase client not initialized for analytics. Skipping page view tracking.');
+      return;
+    }
+    if (clerkIsLoaded) { // Ensure Clerk is loaded to get correct user state
+      const pageViewData: AnalyticsPageViewEvent = {
+        event_type: 'page_view',
+        path: location.pathname + location.search,
+        session_id: getSessionId(),
+        user_id: isSignedIn && user ? user.id : undefined,
+      };
+
+      // console.log('Tracking page view:', pageViewData);
+      supabase.from('analytics_events').insert([pageViewData]).then(({ error }) => {
+        if (error) {
+          console.error('Error tracking page view:', error);
+        }
+      });
+    }
+  }, [location.pathname, location.search, clerkIsLoaded, isSignedIn, user]); // Re-run on path/auth change
+
   return (
-    <div className="min-h-screen bg-[#1A1A1D] text-white flex font-body">
+    <div className="h-screen overflow-hidden bg-[#1A1A1D] text-white flex font-body">
       {/* Sidebar */}
       <aside 
         className={`bg-gray-900 h-screen transition-all duration-300 flex flex-col shadow-xl ${
@@ -77,12 +181,20 @@ const Dashboard = () => {
         {/* User profile */}
         {!isSidebarCollapsed && (
           <div className="p-4 border-t border-white/5 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center">
-              <User className="h-4 w-4 text-white" />
-            </div>
+            {userProfile?.avatar_url ? (
+              <img src={userProfile.avatar_url} alt="User avatar" className="h-8 w-8 rounded-full" />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center">
+                <User className="h-4 w-4 text-white" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">Alex Johnson</p>
-              <p className="text-xs text-gray-400 truncate">alex@example.com</p>
+              <p className="text-sm font-medium truncate">
+                {userProfile ? `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() : 'Loading...'}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {userProfile?.email || (clerkIsLoaded && !isSignedIn ? 'Not signed in' : 'Loading...')}
+              </p>
             </div>
           </div>
         )}
