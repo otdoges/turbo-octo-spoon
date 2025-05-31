@@ -13,6 +13,7 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.31.8",
     "@million/lint": "^1.0.14",
+    "@supabase/supabase-js": "^2.49.8",
     "busboy": "^1.6.0",
     "cloudinary": "^1.41.3",
     "convex": "^1.1.0",
