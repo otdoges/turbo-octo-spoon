@@ -33,7 +33,7 @@ The system requires two API keys:
    - Copy the key for the next step
 
 2. **OpenRouter API Key** (already configured)
-   - This is pre-configured with the key: `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`
+   - This is pre-configured with the key: 
    - No action needed unless you want to use your own key
 
 ### 2. Set Up Environment Variables
