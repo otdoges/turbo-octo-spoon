@@ -66,8 +66,8 @@ const ImageAnalysisPanel = () => {
   const formatAnalysis = (text: string) => {
     // First format the text with HTML
     return text
-      .replace(/(\d+\.\s+[A-Z\s]+:)/g, '<h3 class="text-lg font-bold mt-4 mb-2 text-indigo-700">$1</h3>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(\d+\.\s+[A-Z\s]+:)/g, '<h3 class="text-lg font-bold mt-4 mb-2 text-purple-300">$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-indigo-300">$1</strong>')
       .replace(/- (.*?)(?=\n|$)/g, '<li class="ml-4 mb-1">$1</li>')
       .split('\n\n')
       .map(paragraph => `<p class="mb-3">${paragraph}</p>`)
@@ -75,16 +75,16 @@ const ImageAnalysisPanel = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">AI Website Image Analysis</h2>
+    <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl border border-white/5 shadow-lg p-6 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold font-display mb-6">AI Website Image Analysis</h2>
       
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
           Website URL (optional)
         </label>
         <input
           type="text"
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
           placeholder="https://example.com"
           value={websiteUrl}
           onChange={(e) => setWebsiteUrl(e.target.value)}
@@ -92,22 +92,22 @@ const ImageAnalysisPanel = () => {
       </div>
       
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
           Upload Website Screenshot
         </label>
         <input
           type="file"
           ref={fileInputRef}
           accept="image/*"
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+          className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-purple-600/30 file:text-purple-300 hover:file:bg-purple-600/40"
           onChange={handleFileChange}
         />
       </div>
       
       {imagePreview && (
         <div className="mb-6">
-          <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-          <div className="relative w-full h-64 bg-gray-100 rounded-md overflow-hidden">
+          <p className="text-sm font-medium text-gray-300 mb-2">Preview:</p>
+          <div className="relative w-full h-64 bg-gray-800/50 rounded-xl overflow-hidden border border-white/5">
             <img 
               src={imagePreview} 
               alt="Preview" 
@@ -119,7 +119,7 @@ const ImageAnalysisPanel = () => {
       
       <div className="mb-8">
         <button
-          className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium rounded-xl shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2 justify-center disabled:opacity-50 disabled:hover:shadow-none"
           onClick={handleAnalyze}
           disabled={isLoading || !fileInputRef.current?.files?.length}
         >
@@ -136,7 +136,7 @@ const ImageAnalysisPanel = () => {
       </div>
       
       {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md">
+        <div className="mb-6 p-4 bg-red-900/20 text-red-300 rounded-xl border border-red-500/20">
           {error}
         </div>
       )}
@@ -144,9 +144,9 @@ const ImageAnalysisPanel = () => {
       {result && (
         <div className="mt-8">
           <div className="mb-4 flex justify-between items-center">
-            <h3 className="text-xl font-bold text-gray-800">Analysis Results</h3>
+            <h3 className="text-xl font-bold font-display">Analysis Results</h3>
             <button
-              className="text-sm text-indigo-600 hover:text-indigo-800"
+              className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
               onClick={() => setShowThinking(!showThinking)}
             >
               {showThinking ? 'Hide AI Thinking Process' : 'Show AI Thinking Process'}
@@ -154,23 +154,23 @@ const ImageAnalysisPanel = () => {
           </div>
           
           {showThinking && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-md">
-              <h4 className="text-md font-semibold mb-2 text-gray-700">DeepSeek R1 Thinking Process:</h4>
-              <div className="text-sm text-gray-600 whitespace-pre-line">
+            <div className="mb-6 p-4 bg-gray-800/50 rounded-xl border border-white/5">
+              <h4 className="text-md font-semibold mb-2 text-purple-300">DeepSeek R1 Thinking Process:</h4>
+              <div className="text-sm text-gray-300 whitespace-pre-line">
                 {result.thinking}
               </div>
               
-              <h4 className="text-md font-semibold mt-4 mb-2 text-gray-700">Initial Recommendations:</h4>
-              <div className="text-sm text-gray-600 whitespace-pre-line">
+              <h4 className="text-md font-semibold mt-4 mb-2 text-purple-300">Initial Recommendations:</h4>
+              <div className="text-sm text-gray-300 whitespace-pre-line">
                 {result.recommendation}
               </div>
             </div>
           )}
           
-          <div className="p-5 bg-white border border-gray-200 rounded-md">
+          <div className="p-5 bg-gray-800/30 border border-white/5 rounded-xl">
             <SafeHTML 
               html={formatAnalysis(result.analysis)}
-              className="prose max-w-none"
+              className="prose prose-invert max-w-none text-gray-300"
             />
           </div>
         </div>

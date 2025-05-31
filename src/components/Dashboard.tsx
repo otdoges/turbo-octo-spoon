@@ -11,11 +11,11 @@ import {
   ChevronLeft,
   Zap,
   Search,
-  User
+  User,
+  ExternalLink
 } from 'lucide-react';
 import DashboardHome from './dashboard/DashboardHome';
 import NewTransformation from './dashboard/NewTransformation';
-import MySites from './dashboard/MySites';
 import Analytics from './dashboard/Analytics';
 import DashboardSettings from './dashboard/DashboardSettings';
 import Help from './dashboard/Help';
@@ -61,7 +61,7 @@ interface AnalyticsPageViewEvent {
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '' },
   { icon: PlusCircle, label: 'New Transformation', path: 'new' },
-  { icon: Globe, label: 'My Sites', path: 'sites' },
+  { icon: Globe, label: 'My Sites', path: '', externalUrl: 'https://sites.luminaweb.app' },
   { icon: BarChart3, label: 'Analytics', path: 'analytics' },
   { icon: Settings, label: 'Settings', path: 'settings' },
   { icon: HelpCircle, label: 'Help', path: 'help' },
@@ -158,23 +158,41 @@ const Dashboard = () => {
         {/* Navigation */}
         <nav className="flex-1 py-6 px-2">
           {sidebarItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center px-4 py-3 mb-1 rounded-lg transition-all ${
-                currentPath === item.path
-                  ? 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-white shadow-md'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <item.icon className={`h-5 w-5 ${currentPath === item.path ? 'text-purple-400' : ''}`} />
-              {!isSidebarCollapsed && (
-                <span className="ml-3 font-medium">{item.label}</span>
-              )}
-              {!isSidebarCollapsed && currentPath === item.path && (
-                <div className="ml-auto h-2 w-2 rounded-full bg-gradient-to-r from-purple-400 to-indigo-400"></div>
-              )}
-            </Link>
+            item.externalUrl ? (
+              <a
+                key={item.label}
+                href={item.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center px-4 py-3 mb-1 rounded-lg transition-all text-gray-400 hover:bg-white/5 hover:text-white`}
+              >
+                <item.icon className="h-5 w-5" />
+                {!isSidebarCollapsed && (
+                  <span className="ml-3 font-medium">{item.label}</span>
+                )}
+                {!isSidebarCollapsed && (
+                  <ExternalLink className="ml-auto h-3.5 w-3.5 text-gray-500" />
+                )}
+              </a>
+            ) : (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center px-4 py-3 mb-1 rounded-lg transition-all ${
+                  currentPath === item.path
+                    ? 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-white shadow-md'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <item.icon className={`h-5 w-5 ${currentPath === item.path ? 'text-purple-400' : ''}`} />
+                {!isSidebarCollapsed && (
+                  <span className="ml-3 font-medium">{item.label}</span>
+                )}
+                {!isSidebarCollapsed && currentPath === item.path && (
+                  <div className="ml-auto h-2 w-2 rounded-full bg-gradient-to-r from-purple-400 to-indigo-400"></div>
+                )}
+              </Link>
+            )
           ))}
         </nav>
 
@@ -217,7 +235,6 @@ const Dashboard = () => {
             <h2 className="font-display text-lg font-medium">
               {currentPath === '' ? 'Dashboard' :
                currentPath === 'new' ? 'New Transformation' :
-               currentPath === 'sites' ? 'My Sites' :
                currentPath === 'analytics' ? 'Analytics' :
                currentPath === 'settings' ? 'Settings' :
                currentPath === 'help' ? 'Help' : 'Dashboard'}
@@ -235,7 +252,6 @@ const Dashboard = () => {
         <Routes>
           <Route path="/" element={<DashboardHome />} />
           <Route path="/new" element={<NewTransformation />} />
-          <Route path="/sites" element={<MySites />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<DashboardSettings />} />
           <Route path="/help" element={<Help />} />

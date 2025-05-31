@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle, Upload, Globe } from 'lucide-react';
 import AccessibleInput from '../ui/AccessibleInput';
 import AccessibleButton from '../ui/AccessibleButton';
@@ -18,6 +18,7 @@ interface ApiResponse {
   analysis?: Record<string, unknown>;
 }
 
+
 const NewTransformation = () => {
   // State
   const [url, setUrl] = useState('');
@@ -28,9 +29,77 @@ const NewTransformation = () => {
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<UploadMode>('url');
   const [isDragging, setIsDragging] = useState(false);
+  const [styles, setStyles] = useState<{id: string, name: string, icon: JSX.Element, description: string}[]>([]);
+  const [colorPalettes, setColorPalettes] = useState<string[]>([]);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch styles from database on mount
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/styles`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch styles');
+        }
+        
+        const data = await response.json();
+        
+        // Map the styles data to include icons
+        const stylesWithIcons = data.map((style: { iconType: string }) => {
+          let icon;
+          switch(style.iconType) {
+            case 'layout':
+              icon = <Layout />;
+              break;
+            case 'paintBucket':
+              icon = <PaintBucket />;
+              break;
+            case 'type':
+              icon = <Type />;
+              break;
+            default:
+              icon = <Layout />;
+          }
+          
+          return {
+            ...style,
+            icon
+          };
+        });
+        
+        setStyles(stylesWithIcons);
+      } catch (error) {
+        logger.error('Failed to fetch styles:', error instanceof Error ? error : new Error(String(error)));
+        // Fallback to default styles if fetch fails
+        setStyles([
+          { id: 'minimalist', name: 'Minimalist', icon: <Layout />, description: 'Clean, simple and focused on content' },
+          { id: 'modern', name: 'Bold & Modern', icon: <PaintBucket />, description: 'Vibrant colors and contemporary design elements' },
+          { id: 'corporate', name: 'Professional', icon: <Type />, description: 'Refined, corporate-ready aesthetic' },
+        ]);
+      }
+    };
+    
+    const fetchColorPalettes = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/color-palettes`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch color palettes');
+        }
+        
+        const data = await response.json();
+        setColorPalettes(data);
+      } catch (error) {
+        logger.error('Failed to fetch color palettes:', error instanceof Error ? error : new Error(String(error)));
+        // Fallback to default colors if fetch fails
+        setColorPalettes(['#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B']);
+      }
+    };
+    
+    fetchStyles();
+    fetchColorPalettes();
+  }, []);
 
   // Handlers for URL submission
   const handleUrlSubmit = async (e: React.FormEvent) => {
@@ -42,8 +111,11 @@ const NewTransformation = () => {
       const screenshotData = await captureScreenshot(url);
       await analyzeImage(screenshotData.screenshotUrl);
       
-      // Continue to next step
-      proceedToNextStep();
+      // Skip to transformation step (Step 3)
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setCurrentStep(3);
+      }, 1000);
     } catch (error) {
       handleApiError(error, 'Failed to capture screenshot');
     }
@@ -85,8 +157,11 @@ const NewTransformation = () => {
       const uploadData = await uploadImage(file);
       await analyzeImage(uploadData.imageUrl);
       
-      // Continue to next step
-      proceedToNextStep();
+      // Skip to transformation step (Step 3)
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setCurrentStep(3);
+      }, 1000);
     } catch (error) {
       handleApiError(error, 'Failed to process image');
     }
@@ -171,7 +246,8 @@ const NewTransformation = () => {
   const proceedToNextStep = () => {
     setTimeout(() => {
       setIsAnalyzing(false);
-      setCurrentStep(2);
+      // Skip to transformation step (Step 3)
+      setCurrentStep(3);
     }, 1000);
   };
 
@@ -474,11 +550,7 @@ const NewTransformation = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {[
-                { id: 'minimalist', name: 'Minimalist', icon: <Layout />, description: 'Clean, simple and focused on content' },
-                { id: 'modern', name: 'Bold & Modern', icon: <PaintBucket />, description: 'Vibrant colors and contemporary design elements' },
-                { id: 'corporate', name: 'Professional', icon: <Type />, description: 'Refined, corporate-ready aesthetic' },
-              ].map((style) => (
+              {styles.map((style) => (
                 <div 
                   key={style.id}
                   onClick={() => handleStyleSelection(style.id)}
@@ -487,7 +559,7 @@ const NewTransformation = () => {
                     : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
                 >
                   <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center mb-4 border border-white/10">
-                    {React.cloneElement(style.icon, { className: 'h-6 w-6 text-purple-400' })}
+                    {style.icon}
                   </div>
                   <h4 className="text-lg font-display font-medium mb-2">{style.name}</h4>
                   <p className="text-gray-400 text-sm">{style.description}</p>
@@ -495,22 +567,12 @@ const NewTransformation = () => {
               ))}
             </div>
 
-            <div className="p-4 bg-indigo-500/10 rounded-lg border border-indigo-500/20 mb-6">
-              <div className="flex items-start gap-3">
-                <Sparkles className="h-5 w-5 text-indigo-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-indigo-300 mb-1">AI Recommendation</h4>
-                  <p className="text-gray-300 text-sm">Based on your current site, we recommend the <strong>Minimalist</strong> style for optimal user engagement and conversion rates.</p>
-                </div>
-              </div>
-            </div>
-
             <div className="flex justify-end">
               <button
-                onClick={() => handleStyleSelection('minimalist')}
+                onClick={() => handleStyleSelection(styles.length > 0 ? styles[0].id : 'minimalist')}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl text-white font-medium shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2"
               >
-                Continue with AI Recommendation
+                Continue
                 <ArrowRight className="h-5 w-5" />
               </button>
             </div>
@@ -589,7 +651,7 @@ const NewTransformation = () => {
                       <Palette className="h-4 w-4 text-gray-400" />
                     </div>
                     <div className="grid grid-cols-5 gap-2">
-                      {['#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'].map((color) => (
+                      {colorPalettes.map((color) => (
                         <div 
                           key={color} 
                           className="h-10 rounded-md cursor-pointer p-0.5"
@@ -674,7 +736,7 @@ const NewTransformation = () => {
                 <h4 className="text-lg font-medium mb-4">Original Website</h4>
                 <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden">
                   <img 
-                    src="https://placehold.co/800x600/1e293b/475569?text=Original+Website" 
+                    src={screenshotUrl || "https://placehold.co/800x600/1e293b/475569?text=Original+Website"} 
                     alt="Original Website" 
                     className="w-full h-full object-cover"
                   />
@@ -684,7 +746,7 @@ const NewTransformation = () => {
                 <h4 className="text-lg font-medium mb-4">Transformed Website</h4>
                 <div className="aspect-video bg-white rounded-lg overflow-hidden">
                   <img 
-                    src="https://placehold.co/800x600/e2e8f0/1e293b?text=Transformed+Website" 
+                    src="/images/transformed-preview.jpg" 
                     alt="Transformed Website" 
                     className="w-full h-full object-cover"
                   />
@@ -697,7 +759,7 @@ const NewTransformation = () => {
               <ul className="space-y-2">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-400" />
-                  <span>Applied Minimalist design style with clean typography</span>
+                  <span>Applied {stylePreference || 'selected'} design style with clean typography</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-400" />

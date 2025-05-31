@@ -1,4 +1,5 @@
-import 'dotenv/config';
+// Remove the dotenv import as it's a server-side package
+// The environment variables should be handled through Vite's define config
 
 // Base API URL for server endpoints
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
