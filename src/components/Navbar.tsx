@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { SignedIn, SignedOut, UserButton, SignInButton, SignUpButton } from '@clerk/clerk-react';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -39,8 +40,20 @@ const Navbar = () => {
           <a href="#how-it-works" className="text-white hover:text-purple-300 transition-colors">How It Works</a>
           <a href="#showcase" className="text-white hover:text-purple-300 transition-colors">Showcase</a>
           <a href="#pricing" className="text-white hover:text-purple-300 transition-colors">Pricing</a>
-          <Link to="/auth" className="btn-secondary">Sign In</Link>
-          <Link to="/auth" className="btn-primary">Get Started</Link>
+          
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="btn-secondary">Sign In</button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="btn-primary">Get Started</button>
+            </SignUpButton>
+          </SignedOut>
+          
+          <SignedIn>
+            <Link to="/dashboard" className="btn-secondary mr-4">Dashboard</Link>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
 
         {/* Mobile Menu Button */}
@@ -83,8 +96,22 @@ const Navbar = () => {
           >
             Pricing
           </a>
-          <Link to="/auth" className="btn-secondary w-full">Sign In</Link>
-          <Link to="/auth" className="btn-primary w-full mt-2">Get Started</Link>
+          
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="btn-secondary w-full">Sign In</button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="btn-primary w-full mt-2">Get Started</button>
+            </SignUpButton>
+          </SignedOut>
+          
+          <SignedIn>
+            <Link to="/dashboard" className="btn-secondary w-full">Dashboard</Link>
+            <div className="flex justify-center mt-2">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </SignedIn>
         </div>
       )}
     </nav>

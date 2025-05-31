@@ -6,11 +6,13 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     email: v.string(),
-    // Store auth information - this would be replaced with a proper auth system later
-    fakeAuthToken: v.string(),
+    // Clerk user ID
+    clerkId: v.string(),
     createdAt: v.number(),
     lastLogin: v.optional(v.number()),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_clerkId", ["clerkId"]),
 
   // Screenshots table to store metadata about screenshots
   screenshots: defineTable({
