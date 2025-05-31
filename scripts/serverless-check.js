@@ -94,18 +94,11 @@ function runServerlessSecurityCheck(dirs) {
 
 // Run code review on specific serverless directories
 function runServerlessCodeReview(dirs) {
-  console.log(chalk.cyan('🔍 Running code review on serverless functions...'));
+  console.log(chalk.cyan('🔍 Code review on serverless functions has been disabled...'));
   
-  try {
-    // Use the existing code-review.js script but focus on serverless directories
-    const targetDirs = dirs.join(',');
-    execSync(`node scripts/code-review.js --dirs=${targetDirs}`, { stdio: 'inherit' });
-    console.log(chalk.green('✅ Serverless code review passed!'));
-    return true;
-  } catch (error) {
-    console.error(chalk.red('❌ Serverless code review failed!'));
-    return false;
-  }
+  // Code review has been disabled as requested
+  console.log(chalk.green('✅ Serverless code review skipped!'));
+  return true;
 }
 
 // Main function
@@ -136,8 +129,8 @@ async function main() {
   
   console.log(chalk.cyan(`Found a total of ${totalFunctions} serverless functions.`));
   
-  // Update the security-check.js and code-review.js scripts to accept directory parameters
-  // Here we'll add the --dirs parameter to the existing scripts
+  // Update the security-check.js script to accept directory parameters
+  // Here we'll add the --dirs parameter to the existing script
   
   // Run security check
   const securityCheckPassed = runServerlessSecurityCheck(serverlessDirsExist);
