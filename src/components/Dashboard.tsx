@@ -55,7 +55,7 @@ interface AnalyticsPageViewEvent {
   user_id?: string;
   path: string;
   session_id: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 const sidebarItems = [

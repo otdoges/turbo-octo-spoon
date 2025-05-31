@@ -129,7 +129,7 @@ export async function updateTransformationStatus(
   transformationId: string, 
   status: TransformationStatus, 
   transformedScreenshotUrl?: string,
-  processingData?: any
+  processingData?: Database['public']['Tables']['transformations']['Update']['processing_data']
 ) {
   const updateData: Partial<Transformation> = {
     status,
