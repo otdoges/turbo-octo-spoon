@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle, Upload, Globe } from 'lucide-react';
 
 const NewTransformation = () => {
   const [url, setUrl] = useState('');
@@ -8,43 +8,74 @@ const NewTransformation = () => {
   const [stylePreference, setStylePreference] = useState<string | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAnalyzing(true);
     setScreenshotError(null);
 
-    try {
-      // Call screenshot API
-      const response = await fetch('http://localhost:3001/api/screenshot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+    if (uploadMode === 'url') {
+      try {
+        // Call screenshot API
+        const response = await fetch('http://localhost:3001/api/screenshot', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to capture screenshot');
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to capture screenshot');
+        }
+
+        // Save screenshot URL
+        setScreenshotUrl(`http://localhost:3001${data.screenshotUrl}`);
+        
+        // Continue to next step
+        setTimeout(() => {
+          setIsAnalyzing(false);
+          setCurrentStep(2);
+        }, 1000);
+      } catch (error) {
+        console.error('Error taking screenshot:', error);
+        setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
+          ? (error as Error).message 
+          : 'Failed to capture screenshot');
+        setIsAnalyzing(false);
       }
+    }
+  };
 
-      // Save screenshot URL
-      setScreenshotUrl(`http://localhost:3001${data.screenshotUrl}`);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setIsAnalyzing(true);
+    setScreenshotError(null);
+    
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = () => {
+      // Set the uploaded image as the screenshot
+      setScreenshotUrl(reader.result as string);
       
-      // Continue to next step
       setTimeout(() => {
         setIsAnalyzing(false);
         setCurrentStep(2);
       }, 1000);
-    } catch (error) {
-      console.error('Error taking screenshot:', error);
-      setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
-        ? (error as Error).message 
-        : 'Failed to capture screenshot');
+    };
+    
+    reader.onerror = () => {
+      setScreenshotError('Failed to read the uploaded file');
       setIsAnalyzing(false);
-    }
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   const handleStyleSelection = (style: string) => {
@@ -110,73 +141,158 @@ const NewTransformation = () => {
             <h3 className="text-xl font-display font-medium mb-4">Step 1: Enter Your Website URL</h3>
             <p className="text-gray-300 mb-6">We'll analyze your current website to provide the best transformation</p>
             
-            <form onSubmit={handleSubmit} className="relative z-10 space-y-6 max-w-2xl">
-              <div>
-                <label htmlFor="url" className="block text-sm font-medium mb-2 text-gray-300">
-                  Website URL
-                </label>
-                <div className="flex">
-                  <input
-                    type="url"
-                    id="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://your-website.com"
-                    className="flex-1 px-4 py-3 rounded-l-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={isAnalyzing}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-r-xl text-white font-medium shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Sparkles className="w-5 h-5 animate-pulse" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-5 h-5" />
-                        Analyze Site
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-              
-              {isAnalyzing && (
-                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-4 mb-2">
-                    <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                    <p className="text-gray-300">Taking screenshot and analyzing website structure...</p>
+            {/* Upload mode toggle */}
+            <div className="flex mb-6 bg-gray-800/50 rounded-lg p-1 max-w-xs">
+              <button 
+                onClick={() => setUploadMode('url')}
+                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
+                  uploadMode === 'url' 
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Globe className="h-4 w-4" />
+                <span>URL</span>
+              </button>
+              <button 
+                onClick={() => setUploadMode('file')}
+                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
+                  uploadMode === 'file' 
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                <span>Image</span>
+              </button>
+            </div>
+            
+            {uploadMode === 'url' ? (
+              <form onSubmit={handleSubmit} className="relative z-10 space-y-6 max-w-2xl">
+                <div>
+                  <label htmlFor="url" className="block text-sm font-medium mb-2 text-gray-300">
+                    Website URL
+                  </label>
+                  <div className="flex">
+                    <input
+                      type="url"
+                      id="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://your-website.com"
+                      className="flex-1 px-4 py-3 rounded-l-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={isAnalyzing}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-r-xl text-white font-medium shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Sparkles className="w-5 h-5 animate-pulse" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-5 h-5" />
+                          Analyze Site
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
-                  </div>
                 </div>
-              )}
-
-              {screenshotError && !isAnalyzing && (
-                <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
-                  <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <p className="text-red-300 font-medium">Screenshot Error</p>
-                      <p className="text-gray-300 text-sm">{screenshotError}</p>
+                
+                {isAnalyzing && (
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+                      <p className="text-gray-300">Taking screenshot and analyzing website structure...</p>
+                    </div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setScreenshotError(null)}
-                    className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
+                )}
+
+                {screenshotError && !isAnalyzing && (
+                  <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
+                    <div className="flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-red-300 font-medium">Screenshot Error</p>
+                        <p className="text-gray-300 text-sm">{screenshotError}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setScreenshotError(null)}
+                      className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </form>
+            ) : (
+              <div className="relative z-10 space-y-6 max-w-2xl">
+                <div>
+                  <label htmlFor="image-upload" className="block text-sm font-medium mb-2 text-gray-300">
+                    Upload Website Image
+                  </label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()} 
+                    className="border-2 border-dashed border-white/10 rounded-xl bg-white/5 p-8 text-center cursor-pointer hover:bg-white/10 transition-colors"
                   >
-                    Dismiss
-                  </button>
+                    <input 
+                      ref={fileInputRef}
+                      id="image-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleFileUpload}
+                      disabled={isAnalyzing}
+                    />
+                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-300 font-medium mb-1">Click to upload or drag and drop</p>
+                    <p className="text-gray-400 text-sm">PNG, JPG or WEBP (max. 10MB)</p>
+                  </div>
                 </div>
-              )}
-            </form>
+
+                {isAnalyzing && (
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+                      <p className="text-gray-300">Analyzing website image...</p>
+                    </div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
+                    </div>
+                  </div>
+                )}
+
+                {screenshotError && !isAnalyzing && (
+                  <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
+                    <div className="flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-red-300 font-medium">Upload Error</p>
+                        <p className="text-gray-300 text-sm">{screenshotError}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setScreenshotError(null)}
+                      className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
