@@ -1,6 +1,6 @@
 import { useState, useRef, ChangeEvent } from 'react';
 import geminiService from '../services/geminiService';
-import DOMPurify from 'dompurify';
+import SafeHTML from './SafeHTML';
 
 interface AnalysisResult {
   analysis: string;
@@ -65,22 +65,13 @@ const ImageAnalysisPanel = () => {
 
   const formatAnalysis = (text: string) => {
     // First format the text with HTML
-    const formatted = text
+    return text
       .replace(/(\d+\.\s+[A-Z\s]+:)/g, '<h3 class="text-lg font-bold mt-4 mb-2 text-indigo-700">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/- (.*?)(?=\n|$)/g, '<li class="ml-4 mb-1">$1</li>')
       .split('\n\n')
       .map(paragraph => `<p class="mb-3">${paragraph}</p>`)
       .join('');
-    
-    // Sanitize the HTML to prevent XSS attacks
-    return DOMPurify.sanitize(formatted, {
-      USE_PROFILES: { html: true },
-      ALLOWED_TAGS: [
-        'h3', 'strong', 'li', 'p', 'ul', 'ol', 'em', 'b', 'i', 'span'
-      ],
-      ALLOWED_ATTR: ['class', 'style']
-    });
   };
 
   return (
@@ -177,9 +168,9 @@ const ImageAnalysisPanel = () => {
           )}
           
           <div className="p-5 bg-white border border-gray-200 rounded-md">
-            <div 
+            <SafeHTML 
+              html={formatAnalysis(result.analysis)}
               className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatAnalysis(result.analysis)) }}
             />
           </div>
         </div>

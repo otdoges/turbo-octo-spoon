@@ -110,7 +110,17 @@ function checkFile(filePath) {
   // Check for XSS vulnerabilities
   PATTERNS.xss.forEach(pattern => {
     if (pattern.test(content)) {
-      // Check if DOMPurify is used when dangerouslySetInnerHTML is present
+      // Check if it's our SafeHTML component
+      if (
+        /export default SafeHTML/.test(content) && 
+        /DOMPurify\.sanitize/.test(content) &&
+        /data-sanitized="true"/.test(content)
+      ) {
+        // This is our secure SafeHTML component, ignore
+        return;
+      }
+      
+      // Check if there's a function that sanitizes the content before using dangerouslySetInnerHTML
       if (pattern.toString().includes('dangerouslySetInnerHTML')) {
         // Check if there's a function that sanitizes the content before using dangerouslySetInnerHTML
         const hasFormatFunction = /function\s+format\w+\s*\([^)]*\)\s*\{[\s\S]*?DOMPurify\.sanitize\([\s\S]*?\}\s*\}/i.test(content);
@@ -118,9 +128,11 @@ function checkFile(filePath) {
         const hasDomPurifyDirect = /dangerouslySetInnerHTML\s*=\s*\{\s*\{\s*__html\s*:\s*DOMPurify\.sanitize\(/i.test(content);
         // Check if the component imports DOMPurify
         const importsDomPurify = /import\s+.*DOMPurify.*from\s+['"]dompurify['"]/i.test(content);
+        // Check if it's using our SafeHTML component
+        const usesSafeHTML = /<SafeHTML[\s\S]*?html=/i.test(content);
         
         // If any of these conditions are met, the code is likely safe
-        if ((hasFormatFunction || hasDomPurifyDirect) && importsDomPurify) {
+        if (((hasFormatFunction || hasDomPurifyDirect) && importsDomPurify) || usesSafeHTML) {
           return;
         }
       }

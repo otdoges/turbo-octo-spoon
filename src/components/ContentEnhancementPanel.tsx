@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import geminiService from '../services/geminiService';
-import DOMPurify from 'dompurify';
+import SafeHTML from './SafeHTML';
 
 interface EnhancementResult {
   enhancement: string;
@@ -40,21 +40,13 @@ const ContentEnhancementPanel = () => {
   };
 
   const formatEnhancement = (text: string) => {
-    const formatted = text
+    return text
       .replace(/### (.*?)(?=\n|$)/g, '<h3 class="text-lg font-bold mt-4 mb-2 text-indigo-700">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/- (.*?)(?=\n|$)/g, '<li class="ml-4 mb-1">$1</li>')
       .split('\n\n')
       .map(paragraph => `<p class="mb-3">${paragraph}</p>`)
       .join('');
-    
-    return DOMPurify.sanitize(formatted, {
-      USE_PROFILES: { html: true },
-      ALLOWED_TAGS: [
-        'h3', 'strong', 'li', 'p', 'ul', 'ol', 'em', 'b', 'i', 'span'
-      ],
-      ALLOWED_ATTR: ['class', 'style']
-    });
   };
 
   return (
@@ -137,9 +129,9 @@ const ContentEnhancementPanel = () => {
           )}
           
           <div className="p-5 bg-white border border-gray-200 rounded-md">
-            <div 
+            <SafeHTML 
+              html={formatEnhancement(result.enhancement)}
               className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatEnhancement(result.enhancement)) }}
             />
           </div>
         </div>
