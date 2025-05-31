@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "node scripts/predev-check.js",
-    "dev": "vite",
+    "dev": "concurrently \"bun run server\" \"vite\"",
     "prebuild": "node scripts/predev-check.js",
     "build": "vite build",
     "postbuild": "node scripts/generate-csp-hashes.js",
@@ -57,6 +57,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "audit-ci": "^7.1.0",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.1.2",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",

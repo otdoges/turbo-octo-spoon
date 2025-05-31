@@ -87,23 +87,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware to replace CSP nonce placeholder in HTML
-app.use(express.static(path.join(__dirname, '../dist'), {
-  setHeaders: (res, filePath) => {
-    if (path.extname(filePath) === '.html') {
-      fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-          console.error('Error reading HTML file:', err);
-          return;
-        }
-        
-        // Replace nonce placeholder with actual nonce
-        const modifiedHtml = data.replace(/%%CSP_NONCE%%/g, res.locals.cspNonce);
-        res.send(modifiedHtml);
-      });
+// Middleware to handle HTML files with CSP nonce replacement
+app.get('*.html', (req, res, next) => {
+  const filePath = path.join(__dirname, '../dist', req.path);
+  
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      // Pass to next middleware if file not found or other error
+      return next();
     }
-  }
-}));
+    
+    // Replace nonce placeholder with actual nonce
+    const modifiedHtml = data.replace(/%%CSP_NONCE%%/g, res.locals.cspNonce);
+    res.type('html').send(modifiedHtml);
+  });
+});
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // Screenshot endpoint
 app.post('/api/screenshot', async (req, res) => {
@@ -219,7 +220,21 @@ app.post('/api/analyze', (req, res) => {
   }, 2000);
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`Screenshot server running on port ${port}`);
-}); 
+// Start server with port fallback
+const startServer = (attemptPort) => {
+  const server = app.listen(attemptPort)
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${attemptPort} is busy, trying ${attemptPort + 1}...`);
+        startServer(attemptPort + 1);
+      } else {
+        console.error('Server error:', err);
+      }
+    })
+    .on('listening', () => {
+      const actualPort = server.address().port;
+      console.log(`Screenshot server running on port ${actualPort}`);
+    });
+};
+
+startServer(port); 
