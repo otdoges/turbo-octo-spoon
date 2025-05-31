@@ -12,9 +12,13 @@
   },
   "dependencies": {
     "@million/lint": "^1.0.14",
+    "busboy": "^1.6.0",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "formidable": "^3.5.1",
     "lucide-react": "^0.344.0",
+    "node-fetch": "^3.3.2",
     "playwright": "^1.44.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

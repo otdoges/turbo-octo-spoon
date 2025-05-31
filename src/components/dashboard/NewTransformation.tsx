@@ -1,6 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle, Upload, Globe } from 'lucide-react';
 
+// Update API URLs to use environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 const NewTransformation = () => {
   const [url, setUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -19,8 +22,8 @@ const NewTransformation = () => {
 
     if (uploadMode === 'url') {
       try {
-        // Call screenshot API
-        const response = await fetch('http://localhost:3001/api/screenshot', {
+        // Call screenshot API (serverless version)
+        const response = await fetch(`${API_BASE_URL}/api/screenshot`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -34,8 +37,26 @@ const NewTransformation = () => {
           throw new Error(data.message || 'Failed to capture screenshot');
         }
 
-        // Save screenshot URL
-        setScreenshotUrl(`http://localhost:3001${data.screenshotUrl}`);
+        // Save screenshot URL (directly from the service)
+        setScreenshotUrl(data.screenshotUrl);
+        
+        // Call the analyze endpoint
+        const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageUrl: data.screenshotUrl }),
+        });
+        
+        const analysisData = await analysisResponse.json();
+        
+        if (!analysisResponse.ok) {
+          throw new Error(analysisData.message || 'Failed to analyze screenshot');
+        }
+        
+        // Process analysis data here (to be implemented with AI integration)
+        console.log('Analysis results:', analysisData.analysis);
         
         // Continue to next step
         setTimeout(() => {
@@ -63,12 +84,14 @@ const NewTransformation = () => {
     // Check if file is an image
     if (!file.type.startsWith('image/')) {
       setScreenshotError('Only image files are allowed');
+      setIsAnalyzing(false);
       return;
     }
     
     // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setScreenshotError('File size exceeds 10MB limit');
+      setIsAnalyzing(false);
       return;
     }
     
@@ -77,8 +100,8 @@ const NewTransformation = () => {
     formData.append('image', file);
     
     try {
-      // Upload the file to the server
-      const response = await fetch('http://localhost:3001/api/upload', {
+      // Upload the file to the serverless API
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -90,10 +113,10 @@ const NewTransformation = () => {
       }
       
       // Save the image URL
-      setScreenshotUrl(`http://localhost:3001${data.imageUrl}`);
+      setScreenshotUrl(data.imageUrl);
       
       // Call the analyze endpoint
-      const analysisResponse = await fetch('http://localhost:3001/api/analyze', {
+      const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,61 +1,75 @@
 # LuminaWeb - AI Website Transformation
 
-This application uses Playwright to take screenshots of websites for AI analysis and transformation. It also supports direct image uploads for sites that can't be accessed via URL.
+This application uses serverless functions to take screenshots of websites and upload images for AI analysis and transformation. The application is designed to be deployed on serverless platforms like Vercel and Netlify.
 
 ## Features
 
-- Take screenshots of websites using Playwright
-- Upload website images directly
+- Take screenshots of websites using serverless APIs
+- Upload website images directly with drag-and-drop
 - Analyze website design and structure (AI integration coming soon)
 - Apply AI-powered transformations
 - Preview before/after comparisons
 
-## Setup
+## Development Setup
 
 1. Install dependencies:
    ```
    bun install
    ```
 
-2. Install server dependencies:
-   ```
-   cd server && bun install
-   ```
-
-3. Start the React application:
+2. Start the development server:
    ```
    bun run dev
    ```
 
-4. Start the screenshot server:
+3. For local testing with the Express server:
    ```
    bun run server
    ```
 
-## Screenshot Functionality
+## Serverless Deployment
 
-The application offers two ways to input website content for analysis:
+The application is configured to work with serverless platforms like Vercel and Netlify. Choose one of the following deployment options:
 
-### 1. URL-based Screenshot
-- Enter a website URL in the "New Transformation" section
-- The server-side Playwright engine navigates to the URL and takes a screenshot
-- The screenshot is stored on the server and made available for analysis
+### Vercel Deployment
 
-### 2. Direct Image Upload
-- Upload an image of a website directly
-- Supports drag-and-drop functionality
-- Images are stored on the server for analysis
+1. Push your code to GitHub
+2. Import your repository in Vercel
+3. Configure the following environment variables:
+   - `SCREENSHOT_API_KEY`: Your screenshot API service key
+   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
+   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
+   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+4. Deploy
 
-## Placeholder for AI Integration
+### Netlify Deployment
 
-The current implementation includes placeholders for future AI analysis:
+1. Push your code to GitHub
+2. Import your repository in Netlify
+3. Configure the following environment variables:
+   - `SCREENSHOT_API_KEY`: Your screenshot API service key
+   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
+   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
+   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+4. Deploy
 
-- Server-side `/api/analyze` endpoint that will process images
-- Mock data structure for design analysis
-- Integration points for connecting AI services
+## Serverless Architecture
+
+The application uses the following serverless functions:
+
+1. `/api/screenshot` - Takes screenshots of websites using external screenshot APIs
+2. `/api/upload` - Uploads images to Cloudinary for storage
+3. `/api/analyze` - Analyzes images (placeholder for future AI integration)
+
+### External Services
+
+- **Image Storage**: Cloudinary (free tier includes 25GB/month)
+- **Screenshot API**: Screenshot API, Urlbox, or similar (many offer free tiers)
+- **Future AI Integration**: OpenAI Vision API or similar
 
 ## Notes
 
-- Playwright requires compatible browsers to be installed. If you encounter issues, you might need to install browsers manually.
-- The screenshot server runs on port 3001 by default.
-- Maximum file upload size is 10MB. 
+- The serverless functions have been optimized to work within the free tier limits of Vercel and Netlify
+- The application supports both direct image uploads and URL-based screenshots
+- Maximum file upload size is 10MB
+- For heavy usage, consider upgrading to paid plans on the respective platforms 
