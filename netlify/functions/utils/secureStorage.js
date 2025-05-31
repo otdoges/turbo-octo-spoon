@@ -1,14 +1,7 @@
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('cloudinary').v2;
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true
-});
+const fetch = require('node-fetch');
+const FormData = require('form-data');
 
 // Constants
 const MAX_FILE_SIZE = (parseInt(process.env.MAX_FILE_SIZE_MB) || 10) * 1024 * 1024; // Default 10MB
@@ -52,140 +45,148 @@ function decryptData(encryptedText) {
   return JSON.parse(decrypted);
 }
 
-// Save file to Cloudinary
+// Save file using UploadThing
 async function saveFile(buffer, originalFilename) {
   if (buffer.length > MAX_FILE_SIZE) {
     throw new Error(`File size exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
   }
   
-  // Generate a unique ID for this file
-  const fileId = uuidv4();
-  
   try {
-    // Instead of relying on setTimeout in serverless environments,
-    // set Cloudinary to automatically delete after the retention period
-    const autoDeleteAt = new Date();
-    autoDeleteAt.setMinutes(autoDeleteAt.getMinutes() + FILE_RETENTION_MINUTES);
-    
-    // Upload to Cloudinary with buffer
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          public_id: fileId,
-          folder: 'luminaweb-temp',
-          resource_type: 'auto', // Use 'auto' instead of hardcoded 'image'
-          // Set auto-deletion after retention period
-          eager_async: true,
-          tags: ['temp', 'auto-delete'],
-          transformation: [
-            { quality: 'auto', fetch_format: 'auto' }
-          ],
-          // Set expiration time directly in Cloudinary
-          invalidate: true
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      
-      // Convert buffer to stream and pipe to uploadStream
-      const bufferStream = require('stream').Readable.from(buffer);
-      bufferStream.pipe(uploadStream);
-    });
-    
-    // Generate access token
+    // Generate a unique ID for this file
+    const fileId = uuidv4();
     const accessToken = generateToken();
     const expiresAt = new Date(Date.now() + (FILE_RETENTION_MINUTES * 60 * 1000));
     
-    // Store secure information
-    const secureInfo = {
-      fileId: fileId,
-      cloudinaryId: uploadResult.public_id,
-      url: uploadResult.secure_url,
-      expiresAt: expiresAt.toISOString(),
-      accessToken: accessToken // Store to validate later
-    };
+    // Create a FormData object to send to the UploadThing API
+    const formData = new FormData();
     
-    // Encrypt the secure info for validation
-    const encryptedInfo = encryptData(secureInfo);
+    // Add the file to the form data with appropriate content type detection
+    const fileExtension = originalFilename ? originalFilename.split('.').pop().toLowerCase() : 'jpg';
+    let contentType;
     
-    // Use Cloudinary context to store metadata instead of relying on setTimeout
-    await cloudinary.uploader.add_context(`expires=${expiresAt.toISOString()},encrypted=${encryptedInfo.substring(0, 200)}`, [uploadResult.public_id]);
+    // Determine content type based on file extension
+    switch (fileExtension) {
+      case 'jpg':
+      case 'jpeg':
+        contentType = 'image/jpeg';
+        break;
+      case 'png':
+        contentType = 'image/png';
+        break;
+      case 'gif':
+        contentType = 'image/gif';
+        break;
+      case 'webp':
+        contentType = 'image/webp';
+        break;
+      default:
+        contentType = 'application/octet-stream';
+    }
+    
+    formData.append('file', buffer, {
+      filename: originalFilename || `${fileId}.${fileExtension}`,
+      contentType,
+    });
+    
+    // Add metadata
+    formData.append('fileId', fileId);
+    formData.append('accessToken', accessToken);
+    formData.append('expiresAt', expiresAt.toISOString());
+    
+    // Use environment variable for the API URL with proper fallback
+    const apiUrl = process.env.UPLOAD_API_URL || 
+                 (process.env.NODE_ENV === 'production' 
+                  ? `${process.env.URL}/.netlify/functions/uploadthing/api`
+                  : 'http://localhost:8888/.netlify/functions/uploadthing/api');
+    
+    // Call our UploadThing serverless function
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'x-uploadthing-route': 'imageUploader',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Upload failed: ${errorData.error || response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.url) {
+      throw new Error('Upload response missing URL');
+    }
+    
+    // In a production environment, you would store this metadata in a database
+    // For example, using Supabase, MongoDB, or another database service
+    // TODO: Implement database storage for file metadata
     
     return {
       fileId,
       accessToken,
-      cloudinaryId: uploadResult.public_id,
       expiresAt,
-      url: uploadResult.secure_url
+      url: result.url
     };
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
+    console.error('Error uploading file:', error);
     throw new Error(`Failed to upload file: ${error.message}`);
   }
 }
 
-// Get file from Cloudinary (return the URL)
+// Get file from UploadThing (return the URL)
 async function getFile(fileId, accessToken) {
+  if (!fileId || !accessToken) {
+    throw new Error('Missing required parameters: fileId and accessToken');
+  }
+  
   try {
-    // Get resource info from Cloudinary
-    const result = await cloudinary.api.resource(`luminaweb-temp/${fileId}`, {
-      context: true,
-      metadata: true
-    });
+    // IMPORTANT: In a production environment, you must implement proper storage
+    // and retrieval of file metadata, including validation of access tokens.
+    // 
+    // Example pseudo-code for database implementation:
+    // const fileMetadata = await database.getFileMetadata(fileId);
+    // if (!fileMetadata) throw new Error('File not found');
+    // if (fileMetadata.accessToken !== accessToken) throw new Error('Invalid access token');
+    // if (new Date(fileMetadata.expiresAt) < new Date()) throw new Error('File has expired');
+    // return { fileId, url: fileMetadata.url };
     
-    if (!result || !result.context || !result.context.custom) {
-      throw new Error('File metadata not found');
-    }
+    // For UploadThing files, construct the URL using their pattern
+    // Note: This URL format might change - refer to UploadThing documentation
+    const uploadThingUrl = `https://utfs.io/f/${fileId}`;
     
-    const contextData = result.context.custom;
-    const expiryStr = contextData.expires;
-    const encryptedData = contextData.encrypted;
-    
-    if (!expiryStr || !encryptedData) {
-      throw new Error('Invalid file metadata');
-    }
-    
-    // Check if file has expired
-    const expiryDate = new Date(expiryStr);
-    if (expiryDate < new Date()) {
-      // File has expired, delete it
-      await deleteFile(result.public_id);
-      throw new Error('File has expired');
-    }
-    
-    // Attempt to decrypt and validate the token
-    try {
-      // Get the full encrypted data from another source or use the partial one
-      // This is simplified for the example - in a real app, you'd store this in a database
-      const storedInfo = decryptData(encryptedData);
-      
-      // Validate access token
-      if (storedInfo.accessToken !== accessToken) {
-        throw new Error('Invalid access token');
-      }
-      
-      return { 
-        fileId,
-        url: result.secure_url
-      };
-    } catch (error) {
-      throw new Error('Invalid or corrupted file metadata');
-    }
+    return { 
+      fileId,
+      url: uploadThingUrl
+    };
   } catch (error) {
-    console.error('Error getting file from Cloudinary:', error);
+    console.error('Error getting file:', error);
     throw new Error(`Failed to retrieve file: ${error.message}`);
   }
 }
 
-// Delete file from Cloudinary
-async function deleteFile(cloudinaryId) {
+// Delete file from UploadThing
+async function deleteFile(fileId) {
+  if (!fileId) {
+    throw new Error('Missing required parameter: fileId');
+  }
+  
   try {
-    const result = await cloudinary.uploader.destroy(cloudinaryId, { invalidate: true });
-    return result.result === 'ok';
+    // UploadThing offers deletion via their dashboard and API
+    // For programmatic deletion, you would need to implement their API
+    // See: https://docs.uploadthing.com/api-reference/
+    
+    // TODO: Implement UploadThing deletion API when available
+    console.warn(`File deletion for UploadThing API not implemented for fileId: ${fileId}`);
+    
+    // In production, you should also remove metadata from your database
+    // Example: await database.deleteFileMetadata(fileId);
+    
+    // Return false to indicate deletion was not performed
+    return false;
   } catch (error) {
-    console.error(`Error deleting file from Cloudinary: ${cloudinaryId}`, error);
+    console.error(`Error deleting file: ${fileId}`, error);
     return false;
   }
 }

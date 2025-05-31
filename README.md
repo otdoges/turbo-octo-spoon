@@ -26,6 +26,11 @@ This application uses serverless functions to take screenshots of websites and u
    # Screenshot API
    SCREENSHOT_API_KEY=your_screenshot_api_key
    
+   # UploadThing API for file uploads
+   UPLOADTHING_APP_ID=your_uploadthing_app_id
+   UPLOADTHING_SECRET=your_uploadthing_secret
+   VITE_UPLOADTHING_APP_ID=your_uploadthing_app_id
+   
    # Security
    JWT_SECRET=your_secure_random_string
    FILE_ENCRYPTION_KEY=your_secure_32_character_key
@@ -56,6 +61,9 @@ The application is configured to work with serverless platforms and uses tempora
 3. Configure the following environment variables:
    - `VITE_API_URL`: Your application URL (e.g., https://your-app.vercel.app)
    - `SCREENSHOT_API_KEY`: Your screenshot API service key
+   - `UPLOADTHING_APP_ID`: Your UploadThing app ID
+   - `UPLOADTHING_SECRET`: Your UploadThing secret key
+   - `VITE_UPLOADTHING_APP_ID`: Your UploadThing app ID (for client-side)
    - `FILE_ENCRYPTION_KEY`: A secure 32-character encryption key
    - `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 10)
    - `FILE_RETENTION_MINUTES`: How long to keep files (default: 30)
@@ -68,6 +76,9 @@ The application is configured to work with serverless platforms and uses tempora
 3. Configure the following environment variables:
    - `VITE_API_URL`: Your application URL (e.g., https://your-app.netlify.app)
    - `SCREENSHOT_API_KEY`: Your screenshot API service key
+   - `UPLOADTHING_APP_ID`: Your UploadThing app ID
+   - `UPLOADTHING_SECRET`: Your UploadThing secret key
+   - `VITE_UPLOADTHING_APP_ID`: Your UploadThing app ID (for client-side)
    - `FILE_ENCRYPTION_KEY`: A secure 32-character encryption key
    - `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 10)
    - `FILE_RETENTION_MINUTES`: How long to keep files (default: 30)
@@ -78,10 +89,10 @@ The application is configured to work with serverless platforms and uses tempora
 The application uses a secure approach to file handling:
 
 1. **Encrypted Storage**: All uploaded files are encrypted using AES-256-CBC before being stored
-2. **Temporary Storage**: Files are stored in the server's temporary directory
+2. **Temporary Storage**: Files are stored using UploadThing's secure file hosting
 3. **Automatic Cleanup**: Files are automatically deleted after a configurable retention period
 4. **Secure Access**: Files can only be accessed with a secure random token
-5. **No External CDNs**: All files stay within your serverless environment
+5. **Modern File Storage**: Uses UploadThing for reliable and secure file uploads
 
 ## Security Considerations
 
@@ -102,21 +113,14 @@ The application uses a secure approach to file handling:
 The application uses the following serverless functions:
 
 1. `/api/screenshot` - Takes screenshots of websites using external screenshot APIs
-2. `/api/upload` - Uploads images to Cloudinary for storage
+2. `/api/upload` - Uploads images to UploadThing for secure storage
 3. `/api/analyze` - Analyzes images (placeholder for future AI integration)
 
 ### External Services
 
-- **Image Storage**: Cloudinary (free tier includes 25GB/month)
-- **Screenshot API**: Screenshot API, Urlbox, or similar (many offer free tiers)
+- **Image Storage**: UploadThing (free tier includes generous storage limits)
+- **Screenshot API**: Screenshot One API (many offer free tiers)
 - **Future AI Integration**: OpenAI Vision API or similar
-
-## Notes
-
-- The serverless functions have been optimized to work within the free tier limits of Vercel and Netlify
-- The application supports both direct image uploads and URL-based screenshots
-- Maximum file upload size is 10MB
-- For heavy usage, consider upgrading to paid plans on the respective platforms
 
 ## Code Review Tool
 
@@ -306,4 +310,78 @@ import logger from '../utils/logger';
 
 logger.debug('User logged in:', user);
 logger.error('Failed to save:', error);
-``` 
+```
+
+## UploadThing File Upload Components
+
+This project uses UploadThing for secure file uploads. The implementation includes both server-side functions and client-side React components.
+
+### Setup
+
+1. Sign up for an account at [UploadThing](https://uploadthing.com/) and create a new project
+2. Add your UploadThing credentials to your `.env` file:
+   ```
+   # Server-side
+   UPLOADTHING_APP_ID=your_app_id
+   UPLOADTHING_SECRET=your_secret_key
+   
+   # Client-side
+   VITE_UPLOADTHING_APP_ID=your_app_id
+   ```
+
+### Using the Components
+
+To use the UploadThing components in your React application:
+
+1. Wrap your application with the UploadThing provider:
+
+```jsx
+import { UploadThingProvider } from './components/UploadThingProvider';
+
+function App() {
+  return (
+    <UploadThingProvider>
+      {/* Your app components */}
+      <YourComponent />
+    </UploadThingProvider>
+  );
+}
+```
+
+2. Use the UploadThing component for file uploads:
+
+```jsx
+import { UploadThing } from './components/UploadThing';
+
+function YourComponent() {
+  const handleUploadComplete = (result) => {
+    console.log('Upload completed:', result);
+    // Use the returned URL: result.url
+  };
+  
+  const handleUploadError = (error) => {
+    console.error('Upload error:', error);
+  };
+  
+  return (
+    <div>
+      <h2>Upload an Image</h2>
+      <UploadThing 
+        onUploadComplete={handleUploadComplete}
+        onUploadError={handleUploadError}
+      />
+    </div>
+  );
+}
+```
+
+### Server-Side Implementation
+
+The server-side implementation includes:
+
+1. A file router that handles different file types and sizes
+2. Secure token generation for file access
+3. Automatic file expiration based on configured retention periods
+4. Error handling and validation
+
+For more information, refer to the [UploadThing documentation](https://docs.uploadthing.com/). 

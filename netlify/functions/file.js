@@ -13,7 +13,7 @@ exports.handler = async function(event, context) {
   // Add CSRF protection headers
   const headers = {
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'none'; img-src 'self' data: https://res.cloudinary.com;",
+    'Content-Security-Policy': "default-src 'none'; img-src 'self' data: https://uploadthing.com https://*.uploadthing.com;",
     'Cache-Control': 'no-cache, no-store, must-revalidate'
   };
 
@@ -46,7 +46,7 @@ exports.handler = async function(event, context) {
       throw new Error('Unable to retrieve file');
     }
     
-    // Redirect to the Cloudinary URL
+    // Redirect to the UploadThing URL
     return {
       statusCode: 302,
       headers: {

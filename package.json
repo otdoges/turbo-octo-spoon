@@ -31,6 +31,7 @@
     "@google/generative-ai": "^0.24.1",
     "@million/lint": "^1.0.14",
     "@supabase/supabase-js": "^2.49.8",
+    "@uploadthing/react": "^7.3.1",
     "abort-controller": "^3.0.0",
     "busboy": "^1.6.0",
     "caniuse-lite": "^1.0.30001720",
@@ -51,6 +52,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
     "recharts": "^2.12.2",
+    "uploadthing": "^7.7.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

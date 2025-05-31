@@ -59,15 +59,15 @@ exports.handler = async function(event, context) {
       }
       
       try {
-        // Save file to Cloudinary
+        // Save file using UploadThing through our wrapper
         const { fileId, accessToken, expiresAt, url } = await saveFile(fileBuffer, fileName);
         
-        // Return the direct URL from Cloudinary
+        // Return the direct URL from UploadThing
         resolve({
           statusCode: 200,
           body: JSON.stringify({
             success: true,
-            imageUrl: url, // Direct Cloudinary URL
+            imageUrl: url, // Direct UploadThing URL
             fileId: fileId,
             expiresAt: expiresAt.toISOString(),
             message: 'Image uploaded successfully'
