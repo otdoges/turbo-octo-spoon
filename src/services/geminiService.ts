@@ -3,18 +3,35 @@ import SYSTEM_PROMPTS from './imageAIPromptSystem';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+// Types for Gemini API requests
+type GeminiAPIRequest = {
+  prompt: string;
+  model?: string;
+  temperature?: number;
+  image?: {
+    data: string;
+    mimeType: string;
+  };
+};
+
 // Helper function to call our secure API endpoint
-async function callGeminiAPI(prompt: string, model = 'gemini-2.5-flash', temperature = 0.7) {
+async function callGeminiAPI(request: GeminiAPIRequest | string): Promise<string> {
   try {
+    // Handle string input for backward compatibility
+    const requestData: GeminiAPIRequest = typeof request === 'string' 
+      ? { prompt: request }
+      : request;
+
     const response = await fetch(`${API_BASE_URL}/api/gemini`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt,
-        model,
-        temperature,
+        prompt: requestData.prompt,
+        model: requestData.model || 'gemini-2.5-flash',
+        temperature: requestData.temperature || 0.7,
+        image: requestData.image,
       }),
     });
 
@@ -67,8 +84,9 @@ export const analyzeWebsiteImage = async (image: File, websiteUrl?: string) => {
     const context = websiteUrl ? `The website URL is: ${websiteUrl}` : undefined;
     const thinking = await deepseekService.generateThinking(THINKING_PROMPTS.imageAnalysis, context);
     
-    // Convert image to base64
+    // Convert image to base64 and get MIME type
     const base64Image = await imageToBase64(image);
+    const mimeType = image.type || 'image/jpeg';
     
     // Prepare the prompt for Gemini
     const prompt = `${SYSTEM_PROMPTS.IMAGE_ANALYSIS_PROMPT.gemini}
@@ -81,10 +99,16 @@ ${thinking.thinking}
 Recommendations:
 ${thinking.recommendation}
 
-Now, analyze this screenshot${websiteUrl ? ` of ${websiteUrl}` : ''} using these insights. The image is attached as base64.`;
+Now, analyze this screenshot${websiteUrl ? ` of ${websiteUrl}` : ''} using these insights.`;
 
-    // Call our secure API endpoint
-    const analysis = await callGeminiAPI(prompt);
+    // Call our secure API endpoint with the image
+    const analysis = await callGeminiAPI({
+      prompt,
+      image: {
+        data: base64Image,
+        mimeType
+      }
+    });
     
     return {
       analysis,
@@ -120,7 +144,10 @@ Now, enhance the following content${targetAudience ? ` for ${targetAudience}` : 
 ${content}`;
 
     // Call our secure API endpoint
-    const enhancement = await callGeminiAPI(prompt);
+    const enhancement = await callGeminiAPI({
+      prompt,
+      temperature: 0.7
+    });
     
     return {
       enhancement,
@@ -157,7 +184,10 @@ Now, analyze the following website metadata and provide implementation steps usi
 ${metadataString}${content ? `\n\nContent:\n${content}` : ''}`;
 
     // Call our secure API endpoint
-    const analysis = await callGeminiAPI(prompt);
+    const analysis = await callGeminiAPI({
+      prompt,
+      temperature: 0.7
+    });
     
     return {
       analysis,
@@ -194,7 +224,10 @@ Now, analyze the following user flow and provide implementation steps using thes
 ${userFlow}${conversionDataString ? `\n\nConversion Data:\n${conversionDataString}` : ''}`;
 
     // Call our secure API endpoint
-    const optimization = await callGeminiAPI(prompt);
+    const optimization = await callGeminiAPI({
+      prompt,
+      temperature: 0.7
+    });
     
     return {
       optimization,
