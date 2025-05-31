@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { ClerkProvider } from '@clerk/clerk-react';
+import UserSync from './UserSync';
 
 interface ClerkAuthProviderProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
 
   return (
     <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/">
+      <UserSync />
       {children}
     </ClerkProvider>
   );
