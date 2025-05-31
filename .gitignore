@@ -26,3 +26,5 @@ dist-ssr
 
 # Bolt 
 ./bolt*  
+# Million Lint
+.million
