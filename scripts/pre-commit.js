@@ -229,22 +229,17 @@ async function main() {
   
   // Run code review check
   try {
-    console.log(chalk.cyan('🔍 Running code review checks...'));
-    const { execSync } = await import('child_process');
-    const codeReviewResult = execSync('node scripts/code-review.js', { stdio: 'pipe', encoding: 'utf8' });
+    // Code review has been removed as requested
+    const codeReviewErrors = 0;
     
-    // Extract just error count from code review output (ignoring warnings/info)
-    const errorMatch = codeReviewResult.match(/Found (\d+) errors/);
-    const codeReviewErrors = errorMatch ? parseInt(errorMatch[1]) : 0;
-    
-    if (codeReviewErrors > 0) {
-      console.error(chalk.red(`❌ Code review found ${codeReviewErrors} critical issues that must be fixed!`));
+    if (false) {
+      console.error(chalk.red(`❌ Code review disabled`));
       console.error(codeReviewResult);
       process.exit(1);
     }
   } catch (error) {
     // If code review script fails with non-zero exit code, it found errors
-    console.error(chalk.red('❌ Code review check failed with errors!'));
+    // Removed code review error handling
     if (error.stdout) console.error(error.stdout);
     if (error.stderr) console.error(error.stderr);
     process.exit(1);

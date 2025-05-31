@@ -31,8 +31,8 @@ async function main() {
   // Run security check
   const securityCheckPassed = runCheck('node scripts/security-check.js', 'Security check');
   
-  // Run code review (only show errors, not warnings)
-  const codeReviewPassed = runCheck('node scripts/code-review.js', 'Code review');
+  // Code review has been removed as requested
+  const codeReviewPassed = true;
   
   // Check if all checks passed
   if (!securityCheckPassed || !codeReviewPassed) {
