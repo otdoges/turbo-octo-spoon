@@ -14,6 +14,10 @@
  * - Missing TypeScript types
  * - Accessibility issues in JSX
  * 
+ * Usage:
+ *   node scripts/code-review.js                     # Check entire codebase
+ *   node scripts/code-review.js --dirs=dir1,dir2    # Check specific directories
+ * 
  * To run: bun run code-review
  * Compatible with Windows, macOS, and Linux.
  */
@@ -25,6 +29,25 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const result = { dirs: [] };
+  
+  for (const arg of args) {
+    if (arg.startsWith('--dirs=')) {
+      const dirs = arg.replace('--dirs=', '').split(',');
+      result.dirs = dirs.map(dir => path.join(rootDir, dir));
+    }
+  }
+  
+  return result;
+}
+
+// Get directories to scan
+const args = parseArgs();
+const dirsToScan = args.dirs.length > 0 ? args.dirs : [rootDir];
 
 // Patterns to search for
 const patterns = {
@@ -290,19 +313,34 @@ function formatOutput(issues) {
 async function main() {
   console.log('🔍 Running code review...');
   
-  const issues = await scanDir(rootDir);
+  if (dirsToScan.length === 1 && dirsToScan[0] === rootDir) {
+    console.log('Scanning entire codebase...');
+  } else {
+    console.log(`Scanning specific directories: ${dirsToScan.map(dir => path.relative(rootDir, dir)).join(', ')}`);
+  }
+  
+  // Collect issues from all directories
+  let allIssues = [];
+  for (const dir of dirsToScan) {
+    if (fs.existsSync(dir)) {
+      const issues = await scanDir(dir);
+      allIssues = [...allIssues, ...issues];
+    } else {
+      console.warn(`Warning: Directory ${path.relative(rootDir, dir)} does not exist, skipping.`);
+    }
+  }
   
   // Sort issues by severity (error, warning, info)
-  issues.sort((a, b) => {
+  allIssues.sort((a, b) => {
     const severityOrder = { error: 0, warning: 1, info: 2 };
     return severityOrder[a.severity] - severityOrder[b.severity];
   });
   
-  if (issues.length > 0) {
-    const formattedOutput = formatOutput(issues);
+  if (allIssues.length > 0) {
+    const formattedOutput = formatOutput(allIssues);
     console.log(formattedOutput);
     
-    const errorCount = issues.filter(issue => issue.severity === 'error').length;
+    const errorCount = allIssues.filter(issue => issue.severity === 'error').length;
     
     if (errorCount > 0) {
       console.error('❌ Code review found critical issues that should be fixed!');
@@ -312,7 +350,7 @@ async function main() {
       process.exit(0);
     }
   } else {
-    console.log('✅ Code review passed! No issues found in the codebase.');
+    console.log('✅ Code review passed! No issues found in the scanned code.');
     process.exit(0);
   }
 }

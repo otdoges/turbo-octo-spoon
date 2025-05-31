@@ -158,4 +158,50 @@ The code review tool is integrated into the pre-commit hook and is run before ea
 bun run code-review
 ```
 
-It's recommended to address high-priority issues (errors) immediately, while warnings can be addressed over time as part of ongoing code maintenance. 
+It's recommended to address high-priority issues (errors) immediately, while warnings can be addressed over time as part of ongoing code maintenance.
+
+## Automated Pre-Development Checks
+
+This project includes automated security and code quality checks that run before starting the development server. These checks help catch issues early in the development process.
+
+### How It Works
+
+When you run `bun run dev` to start the development server, the following checks are automatically run first:
+
+1. **Security Check**: Scans the codebase for potential security issues like hardcoded API keys or tokens
+2. **Code Review**: Analyzes the code for quality issues and best practices
+
+If any critical issues are found, the development server will not start until they are fixed.
+
+### Manual Execution
+
+You can also run these checks manually:
+
+```bash
+node scripts/predev-check.js
+```
+
+## Serverless Function Checks
+
+The project includes specialized checks for serverless functions, which are particularly important for security.
+
+### Running Serverless Checks
+
+To check only the serverless functions in your project:
+
+```bash
+bun run check-serverless
+```
+
+This will:
+1. Automatically detect serverless function files in your project
+2. Run focused security and code quality checks on those files
+3. Report any issues that need to be addressed
+
+### Supported Serverless Environments
+
+The script recognizes serverless functions for:
+- Netlify Functions
+- Vercel Serverless Functions
+- API Routes
+- Express server endpoints 

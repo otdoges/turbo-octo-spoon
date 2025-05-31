@@ -6,6 +6,10 @@
  * This script scans the codebase for potential API keys, tokens, or other sensitive information
  * that might have been accidentally committed. It's meant to be run before deployment
  * to prevent security issues.
+ * 
+ * Usage:
+ *   node scripts/security-check.js                     # Check entire codebase
+ *   node scripts/security-check.js --dirs=dir1,dir2    # Check specific directories
  */
 
 import fs from 'fs';
@@ -15,6 +19,25 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const result = { dirs: [] };
+  
+  for (const arg of args) {
+    if (arg.startsWith('--dirs=')) {
+      const dirs = arg.replace('--dirs=', '').split(',');
+      result.dirs = dirs.map(dir => path.join(rootDir, dir));
+    }
+  }
+  
+  return result;
+}
+
+// Get directories to scan
+const args = parseArgs();
+const dirsToScan = args.dirs.length > 0 ? args.dirs : [rootDir];
 
 // Patterns to search for
 const patterns = [
@@ -108,19 +131,34 @@ async function scanDir(dir) {
 }
 
 async function main() {
-  console.log('🔒 Running security check before deployment...');
+  console.log('🔒 Running security check...');
   
-  const issues = await scanDir(rootDir);
+  if (dirsToScan.length === 1 && dirsToScan[0] === rootDir) {
+    console.log('Scanning entire codebase...');
+  } else {
+    console.log(`Scanning specific directories: ${dirsToScan.map(dir => path.relative(rootDir, dir)).join(', ')}`);
+  }
   
-  if (issues.length > 0) {
+  // Collect issues from all directories
+  let allIssues = [];
+  for (const dir of dirsToScan) {
+    if (fs.existsSync(dir)) {
+      const issues = await scanDir(dir);
+      allIssues = [...allIssues, ...issues];
+    } else {
+      console.warn(`Warning: Directory ${path.relative(rootDir, dir)} does not exist, skipping.`);
+    }
+  }
+  
+  if (allIssues.length > 0) {
     console.error('\n⚠️ Security issues found:');
-    issues.forEach(issue => {
+    allIssues.forEach(issue => {
       console.error(`- ${issue.file}:${issue.line} - Potential secret: ${issue.match}`);
     });
     console.error('\n❌ Security check failed! Please fix the issues above before deploying.');
     process.exit(1);
   } else {
-    console.log('✅ Security check passed! No potential secrets found in the codebase.');
+    console.log('✅ Security check passed! No potential secrets found in the scanned code.');
     process.exit(0);
   }
 }
