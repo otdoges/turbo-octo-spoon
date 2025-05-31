@@ -17,6 +17,8 @@
     "security-check": "node scripts/security-check.js",
     "code-review": "node scripts/code-review.js",
     "check-serverless": "node scripts/serverless-check.js",
+    "fix-console-logs": "node scripts/replace-console-logs.js --replace",
+    "check-console-logs": "node scripts/replace-console-logs.js",
     "precommit": "node scripts/pre-commit.js",
     "prepare": "husky install",
     "prerelease": "bun run verify && bun run security-check && bun run code-review",

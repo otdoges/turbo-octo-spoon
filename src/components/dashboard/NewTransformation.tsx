@@ -1,78 +1,74 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Wand2, ArrowRight, Check, Sparkles, PaintBucket, Palette, Layout, ArrowLeft, ExternalLink, Type, Monitor, Sliders, Eye, Shuffle, Upload, Globe } from 'lucide-react';
+import AccessibleInput from '../ui/AccessibleInput';
+import AccessibleButton from '../ui/AccessibleButton';
+import logger from '../../utils/logger';
 
 // Update API URLs to use environment variables
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+// Types
+type UploadMode = 'url' | 'file';
+type StylePreference = string | null;
+
+interface ApiResponse {
+  message?: string;
+  screenshotUrl?: string;
+  imageUrl?: string;
+  analysis?: Record<string, unknown>;
+}
+
 const NewTransformation = () => {
+  // State
   const [url, setUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [stylePreference, setStylePreference] = useState<string | null>(null);
+  const [stylePreference, setStylePreference] = useState<StylePreference>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
-  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadMode, setUploadMode] = useState<UploadMode>('url');
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Refs
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handlers for URL submission
+  const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAnalyzing(true);
     setScreenshotError(null);
 
-    if (uploadMode === 'url') {
-      try {
-        // Call screenshot API (serverless version)
-        const response = await fetch(`${API_BASE_URL}/api/screenshot`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ url }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to capture screenshot');
-        }
-
-        // Save screenshot URL (directly from the service)
-        setScreenshotUrl(data.screenshotUrl);
-        
-        // Call the analyze endpoint
-        const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ imageUrl: data.screenshotUrl }),
-        });
-        
-        const analysisData = await analysisResponse.json();
-        
-        if (!analysisResponse.ok) {
-          throw new Error(analysisData.message || 'Failed to analyze screenshot');
-        }
-        
-        // Process analysis data here (to be implemented with AI integration)
-        console.log('Analysis results:', analysisData.analysis);
-        
-        // Continue to next step
-        setTimeout(() => {
-          setIsAnalyzing(false);
-          setCurrentStep(2);
-        }, 1000);
-      } catch (error) {
-        console.error('Error taking screenshot:', error);
-        setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
-          ? (error as Error).message 
-          : 'Failed to capture screenshot');
-        setIsAnalyzing(false);
-      }
+    try {
+      const screenshotData = await captureScreenshot(url);
+      await analyzeImage(screenshotData.screenshotUrl);
+      
+      // Continue to next step
+      proceedToNextStep();
+    } catch (error) {
+      handleApiError(error, 'Failed to capture screenshot');
     }
   };
 
+  // API call to capture screenshot
+  const captureScreenshot = async (siteUrl: string): Promise<ApiResponse> => {
+    const response = await fetch(`${API_BASE_URL}/api/screenshot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: siteUrl }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to capture screenshot');
+    }
+
+    // Save screenshot URL (directly from the service)
+    setScreenshotUrl(data.screenshotUrl);
+    return data;
+  };
+
+  // File upload handlers
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
@@ -81,71 +77,102 @@ const NewTransformation = () => {
     
     const file = e.target.files[0];
     
+    if (!validateFile(file)) {
+      return;
+    }
+    
+    try {
+      const uploadData = await uploadImage(file);
+      await analyzeImage(uploadData.imageUrl);
+      
+      // Continue to next step
+      proceedToNextStep();
+    } catch (error) {
+      handleApiError(error, 'Failed to process image');
+    }
+  };
+
+  // File validation
+  const validateFile = (file: File): boolean => {
     // Check if file is an image
     if (!file.type.startsWith('image/')) {
       setScreenshotError('Only image files are allowed');
       setIsAnalyzing(false);
-      return;
+      return false;
     }
     
     // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setScreenshotError('File size exceeds 10MB limit');
       setIsAnalyzing(false);
-      return;
+      return false;
     }
     
-    // Create FormData object to send the file
+    return true;
+  };
+
+  // API call to upload image
+  const uploadImage = async (file: File): Promise<ApiResponse> => {
     const formData = new FormData();
     formData.append('image', file);
     
-    try {
-      // Upload the file to the serverless API
-      const response = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to upload image');
-      }
-      
-      // Save the image URL
-      setScreenshotUrl(data.imageUrl);
-      
-      // Call the analyze endpoint
-      const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ imageUrl: data.imageUrl }),
-      });
-      
-      const analysisData = await analysisResponse.json();
-      
-      if (!analysisResponse.ok) {
-        throw new Error(analysisData.message || 'Failed to analyze image');
-      }
-      
-      // Process analysis data here (to be implemented with AI integration)
-      console.log('Analysis results:', analysisData.analysis);
-      
-      // Continue to next step
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        setCurrentStep(2);
-      }, 1000);
-      
-    } catch (error) {
-      console.error('Error processing image:', error);
-      setScreenshotError(typeof error === 'object' && error !== null && 'message' in error 
-        ? (error as Error).message 
-        : 'Failed to process image');
-      setIsAnalyzing(false);
+    const response = await fetch(`${API_BASE_URL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to upload image');
     }
+    
+    // Save the image URL
+    setScreenshotUrl(data.imageUrl);
+    return data;
+  };
+
+  // API call to analyze image
+  const analyzeImage = async (imageUrl: string | undefined): Promise<ApiResponse> => {
+    if (!imageUrl) {
+      throw new Error('No image URL provided');
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to analyze image');
+    }
+    
+    // Process analysis data 
+    logger.info('Analysis results:', data.analysis);
+    
+    return data;
+  };
+
+  // Error handling function
+  const handleApiError = (error: unknown, fallbackMessage: string) => {
+    logger.error('API Error:', error instanceof Error ? error : { message: String(error) });
+    setScreenshotError(
+      typeof error === 'object' && error !== null && 'message' in error 
+        ? (error as Error).message 
+        : fallbackMessage
+    );
+    setIsAnalyzing(false);
+  };
+
+  // Navigation functions
+  const proceedToNextStep = () => {
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      setCurrentStep(2);
+    }, 1000);
   };
 
   const handleStyleSelection = (style: string) => {
@@ -165,7 +192,7 @@ const NewTransformation = () => {
     }
   };
 
-  // Handle drag events
+  // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -192,15 +219,7 @@ const NewTransformation = () => {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       
-      // Check if file is an image
-      if (!file.type.startsWith('image/')) {
-        setScreenshotError('Only image files are allowed');
-        return;
-      }
-      
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setScreenshotError('File size exceeds 10MB limit');
+      if (!validateFile(file)) {
         return;
       }
       
@@ -245,6 +264,178 @@ const NewTransformation = () => {
     </div>
   );
 
+  // Render URL input form
+  const renderUrlForm = () => (
+    <form onSubmit={handleUrlSubmit} className="relative z-10 space-y-6 max-w-2xl">
+      <div className="flex">
+        <div className="flex-1">
+          <AccessibleInput
+            label="Website URL"
+            id="url"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://your-website.com"
+            className="rounded-r-none"
+            fullWidth
+            required
+          />
+        </div>
+        <AccessibleButton
+          type="submit"
+          disabled={isAnalyzing}
+          className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-r-xl text-white font-medium shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2 h-[42px] mt-6"
+          aria-label={isAnalyzing ? "Analyzing website" : "Analyze website"}
+        >
+          {isAnalyzing ? (
+            <>
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Wand2 className="w-5 h-5" />
+              Analyze Site
+            </>
+          )}
+        </AccessibleButton>
+      </div>
+      
+      {renderAnalysisProgress()}
+      {renderErrorMessage()}
+    </form>
+  );
+
+  // Render file upload UI
+  const renderFileUpload = () => (
+    <div className="relative z-10 space-y-6 max-w-2xl">
+      <div>
+        <label htmlFor="image-upload" className="block text-sm font-medium mb-2 text-gray-300">
+          Upload Website Image
+        </label>
+        <div 
+          onClick={() => fileInputRef.current?.click()} 
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+            isDragging 
+              ? 'border-purple-500 bg-purple-500/10' 
+              : 'border-white/10 bg-white/5 hover:bg-white/10'
+          }`}
+          role="button"
+          aria-label="Upload image"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              fileInputRef.current?.click();
+            }
+          }}
+        >
+          <input 
+            ref={fileInputRef}
+            id="image-upload" 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={handleFileUpload}
+            disabled={isAnalyzing}
+            aria-label="Upload image file"
+          />
+          <Upload className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-purple-400' : 'text-gray-400'}`} />
+          <p className="text-gray-300 font-medium mb-1">
+            {isDragging ? 'Drop image here' : 'Click to upload or drag and drop'}
+          </p>
+          <p className="text-gray-400 text-sm">PNG, JPG or WEBP (max. 10MB)</p>
+        </div>
+      </div>
+
+      {renderAnalysisProgress()}
+      {renderErrorMessage()}
+    </div>
+  );
+
+  // Render analysis progress
+  const renderAnalysisProgress = () => (
+    isAnalyzing && (
+      <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+        <div className="flex items-center gap-4 mb-2">
+          <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+          <p className="text-gray-300">
+            {uploadMode === 'url' 
+              ? 'Taking screenshot and analyzing website structure...' 
+              : 'Analyzing website image...'}
+          </p>
+        </div>
+        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
+        </div>
+      </div>
+    )
+  );
+
+  // Render error message
+  const renderErrorMessage = () => (
+    screenshotError && !isAnalyzing && (
+      <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
+        <div className="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          <div>
+            <p className="text-red-300 font-medium">Screenshot Error</p>
+            <p className="text-gray-300 text-sm">{screenshotError}</p>
+          </div>
+        </div>
+        <AccessibleButton
+          onClick={() => setScreenshotError(null)}
+          className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
+          variant="ghost"
+          size="sm"
+          aria-label="Dismiss error"
+        >
+          Dismiss
+        </AccessibleButton>
+      </div>
+    )
+  );
+
+  // Render upload mode toggle
+  const renderUploadModeToggle = () => (
+    <div className="flex mb-6 bg-gray-800/50 rounded-lg p-1 max-w-xs">
+      <AccessibleButton 
+        onClick={() => setUploadMode('url')}
+        className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
+          uploadMode === 'url' 
+            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
+            : 'text-gray-400 hover:text-white'
+        }`}
+        variant={uploadMode === 'url' ? 'primary' : 'ghost'}
+        aria-label="Switch to URL mode"
+        aria-pressed={uploadMode === 'url'}
+      >
+        <Globe className="h-4 w-4" />
+        <span>URL</span>
+      </AccessibleButton>
+      <AccessibleButton 
+        onClick={() => setUploadMode('file')}
+        className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
+          uploadMode === 'file' 
+            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
+            : 'text-gray-400 hover:text-white'
+        }`}
+        variant={uploadMode === 'file' ? 'primary' : 'ghost'}
+        aria-label="Switch to image upload mode"
+        aria-pressed={uploadMode === 'file'}
+      >
+        <Upload className="h-4 w-4" />
+        <span>Image</span>
+      </AccessibleButton>
+    </div>
+  );
+
+  // Main render function
   return (
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
@@ -261,168 +452,8 @@ const NewTransformation = () => {
             <h3 className="text-xl font-display font-medium mb-4">Step 1: Enter Your Website URL</h3>
             <p className="text-gray-300 mb-6">We'll analyze your current website to provide the best transformation</p>
             
-            {/* Upload mode toggle */}
-            <div className="flex mb-6 bg-gray-800/50 rounded-lg p-1 max-w-xs">
-              <button 
-                onClick={() => setUploadMode('url')}
-                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
-                  uploadMode === 'url' 
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <Globe className="h-4 w-4" />
-                <span>URL</span>
-              </button>
-              <button 
-                onClick={() => setUploadMode('file')}
-                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all flex-1 ${
-                  uploadMode === 'file' 
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <Upload className="h-4 w-4" />
-                <span>Image</span>
-              </button>
-            </div>
-            
-            {uploadMode === 'url' ? (
-              <form onSubmit={handleSubmit} className="relative z-10 space-y-6 max-w-2xl">
-                <div>
-                  <label htmlFor="url" className="block text-sm font-medium mb-2 text-gray-300">
-                    Website URL
-                  </label>
-                  <div className="flex">
-                    <input
-                      type="url"
-                      id="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://your-website.com"
-                      className="flex-1 px-4 py-3 rounded-l-xl bg-white/5 border border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={isAnalyzing}
-                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-r-xl text-white font-medium shadow-lg hover:shadow-purple-500/20 transition-all flex items-center gap-2"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <Sparkles className="w-5 h-5 animate-pulse" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-5 h-5" />
-                          Analyze Site
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                
-                {isAnalyzing && (
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                      <p className="text-gray-300">Taking screenshot and analyzing website structure...</p>
-                    </div>
-                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
-                    </div>
-                  </div>
-                )}
-
-                {screenshotError && !isAnalyzing && (
-                  <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
-                    <div className="flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <p className="text-red-300 font-medium">Screenshot Error</p>
-                        <p className="text-gray-300 text-sm">{screenshotError}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setScreenshotError(null)}
-                      className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-              </form>
-            ) : (
-              <div className="relative z-10 space-y-6 max-w-2xl">
-                <div>
-                  <label htmlFor="image-upload" className="block text-sm font-medium mb-2 text-gray-300">
-                    Upload Website Image
-                  </label>
-                  <div 
-                    onClick={() => fileInputRef.current?.click()} 
-                    onDragOver={handleDragOver}
-                    onDragEnter={handleDragEnter}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                      isDragging 
-                        ? 'border-purple-500 bg-purple-500/10' 
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
-                    }`}
-                  >
-                    <input 
-                      ref={fileInputRef}
-                      id="image-upload" 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleFileUpload}
-                      disabled={isAnalyzing}
-                    />
-                    <Upload className={`h-12 w-12 mx-auto mb-3 ${isDragging ? 'text-purple-400' : 'text-gray-400'}`} />
-                    <p className="text-gray-300 font-medium mb-1">
-                      {isDragging ? 'Drop image here' : 'Click to upload or drag and drop'}
-                    </p>
-                    <p className="text-gray-400 text-sm">PNG, JPG or WEBP (max. 10MB)</p>
-                  </div>
-                </div>
-
-                {isAnalyzing && (
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                      <p className="text-gray-300">Analyzing website image...</p>
-                    </div>
-                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-progress-indeterminate"></div>
-                    </div>
-                  </div>
-                )}
-
-                {screenshotError && !isAnalyzing && (
-                  <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/20 mt-4">
-                    <div className="flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <p className="text-red-300 font-medium">Upload Error</p>
-                        <p className="text-gray-300 text-sm">{screenshotError}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setScreenshotError(null)}
-                      className="mt-2 text-sm text-red-300 hover:text-red-200 transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            {renderUploadModeToggle()}
+            {uploadMode === 'url' ? renderUrlForm() : renderFileUpload()}
           </div>
         )}
 

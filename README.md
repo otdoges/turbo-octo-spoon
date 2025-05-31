@@ -205,3 +205,105 @@ The script recognizes serverless functions for:
 - Vercel Serverless Functions
 - API Routes
 - Express server endpoints 
+
+## Accessibility Components
+
+This project includes a set of accessible UI components to ensure compliance with WCAG accessibility standards. These components should be used instead of native HTML elements to ensure consistent styling and proper accessibility attributes.
+
+### Available Components
+
+- **AccessibleButton**: A button component with proper ARIA attributes, keyboard navigation, and various styling options
+- **AccessibleInput**: A text input component with proper labeling, error states, and screen reader support
+- **AccessibleTextarea**: A textarea component with character counting and appropriate ARIA attributes
+
+### Using the Components
+
+```tsx
+// Button example
+<AccessibleButton 
+  onClick={handleClick}
+  variant="primary"
+  size="md"
+  leftIcon={<Icon />}
+  ariaLabel="Submit form"
+>
+  Submit
+</AccessibleButton>
+
+// Input example
+<AccessibleInput
+  label="Email Address"
+  type="email"
+  value={email}
+  onChange={handleChange}
+  errorMessage={errors.email}
+  helperText="We'll never share your email"
+  isRequired
+  fullWidth
+/>
+
+// Textarea example
+<AccessibleTextarea
+  label="Comments"
+  value={comments}
+  onChange={handleChange}
+  maxLength={500}
+  showCharCount
+  resize="vertical"
+/>
+```
+
+### Benefits
+
+Using these components provides several benefits:
+- Consistent styling across the application
+- Built-in accessibility features like proper labeling and ARIA attributes
+- Error and helper text handling
+- Icon support with proper positioning
+- State handling (disabled, loading, error states)
+
+## Console Log Replacement Utility
+
+The project includes a utility to replace all console.log statements with a structured logging system. This helps maintain code quality and makes it easier to control logging behavior in different environments.
+
+### Running the Utility
+
+To scan for console statements without replacing them:
+
+```bash
+bun run check-console-logs
+```
+
+To replace all console statements with the logger utility:
+
+```bash
+bun run fix-console-logs
+```
+
+### Benefits
+
+The logger utility provides several advantages over direct console usage:
+
+1. **Environment-aware logging**: Automatically adjusts log levels based on the environment
+2. **Structured output**: Includes timestamps, log levels, and formatted messages
+3. **Error handling**: Properly formats and captures error stacks
+4. **Centralized control**: Easily disable all debug logs in production
+5. **Easier to extend**: Can be modified to send logs to monitoring services
+
+### Usage
+
+After replacement, instead of:
+
+```js
+console.log('User logged in:', user);
+console.error('Failed to save:', error);
+```
+
+Your code will use:
+
+```js
+import logger from '../utils/logger';
+
+logger.debug('User logged in:', user);
+logger.error('Failed to save:', error);
+``` 
