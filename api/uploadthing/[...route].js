@@ -2,8 +2,7 @@
 import { createRouteHandler } from 'uploadthing/server';
 
 // Import your UploadThing router configuration
-// This requires converting the netlify router to ESM format or creating a new one
-import { uploadthing } from '../../netlify/functions/uploadthing/router.mjs';
+import { uploadthing } from './router.js';
 
 // Create the UploadThing route handler
 const { GET, POST } = createRouteHandler({

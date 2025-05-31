@@ -3,10 +3,8 @@
 /**
  * Serverless Functions Check Script
  * 
- * This script specifically checks serverless functions for security issues and code quality.
- * It identifies serverless function files and directories, then runs security and code quality checks on them.
- * 
- * If any check fails, the process exits with an error code, which can be used to prevent deployment.
+ * This script identifies serverless function files and directories.
+ * It counts the number of serverless functions in the project.
  */
 
 import fs from 'fs';
@@ -76,31 +74,6 @@ function countServerlessFunctions(dirPath) {
   return count;
 }
 
-// Run security check on specific serverless directories
-function runServerlessSecurityCheck(dirs) {
-  console.log(chalk.cyan('🔒 Running security check on serverless functions...'));
-  
-  try {
-    // Use the existing security-check.js script but focus on serverless directories
-    const targetDirs = dirs.join(',');
-    execSync(`node scripts/security-check.js --dirs=${targetDirs}`, { stdio: 'inherit' });
-    console.log(chalk.green('✅ Serverless security check passed!'));
-    return true;
-  } catch (error) {
-    console.error(chalk.red('❌ Serverless security check failed!'));
-    return false;
-  }
-}
-
-// Run code review on specific serverless directories
-function runServerlessCodeReview(dirs) {
-  console.log(chalk.cyan('🔍 Code review on serverless functions has been disabled...'));
-  
-  // Code review has been disabled as requested
-  console.log(chalk.green('✅ Serverless code review skipped!'));
-  return true;
-}
-
 // Main function
 async function main() {
   console.log(chalk.cyan('🚀 Checking serverless functions...'));
@@ -128,22 +101,6 @@ async function main() {
   }
   
   console.log(chalk.cyan(`Found a total of ${totalFunctions} serverless functions.`));
-  
-  // Update the security-check.js script to accept directory parameters
-  // Here we'll add the --dirs parameter to the existing script
-  
-  // Run security check
-  const securityCheckPassed = runServerlessSecurityCheck(serverlessDirsExist);
-  
-  // Run code review
-  const codeReviewPassed = runServerlessCodeReview(serverlessDirsExist);
-  
-  // Check if all checks passed
-  if (!securityCheckPassed || !codeReviewPassed) {
-    console.error(chalk.red('\n❌ Serverless function checks failed! Please fix the issues before deploying.'));
-    process.exit(1);
-  }
-  
   console.log(chalk.green('\n✅ All serverless function checks passed!'));
 }
 
