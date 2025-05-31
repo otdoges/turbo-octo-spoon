@@ -84,7 +84,7 @@ const AIAnalysisDashboard = () => {
             <div className="bg-white p-4 rounded-md shadow-sm">
               <h4 className="font-semibold text-indigo-700 mb-2">GitHub AI Models</h4>
               <p className="text-sm text-gray-700">
-                Provides specialized code intelligence for debugging, refactoring,
+                Provides specialized code intelligence using GPT-4.1 and O4 Mini models for debugging, refactoring,
                 security analysis, and test generation. Requires a GitHub token.
               </p>
             </div>
