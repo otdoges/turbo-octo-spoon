@@ -1,6 +1,8 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ArrowRight, Sparkles, ExternalLink, Clock, BarChart2, Eye, Edit, Trash2, Plus } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
+import AIAnalysisPanel from './AIAnalysisPanel';
 
 const data = [
   { name: 'Mon', value: 4 },
@@ -13,11 +15,14 @@ const data = [
 ];
 
 const DashboardHome = () => {
+  const { user } = useUser();
+  const userName = user?.firstName || user?.username || 'User';
+  
   return (
     <div className="p-8">
       {/* Header */}
       <div className="mb-8 bg-gradient-to-r from-purple-900/10 to-indigo-900/10 p-6 rounded-xl border border-white/5">
-        <h1 className="text-3xl font-display font-bold mb-2">Welcome back, Alex!</h1>
+        <h1 className="text-3xl font-display font-bold mb-2">Welcome back, {userName}!</h1>
         <p className="text-gray-400 font-body">Here's what's happening with your websites today</p>
       </div>
 
@@ -63,6 +68,11 @@ const DashboardHome = () => {
             <div className="absolute -bottom-6 -right-6 h-24 w-24 rounded-full bg-gradient-to-br from-white/5 to-white/0 blur-xl"></div>
           </div>
         ))}
+      </div>
+
+      {/* AI Analysis Panel */}
+      <div className="mb-8">
+        <AIAnalysisPanel />
       </div>
 
       {/* New Transformation CTA */}
