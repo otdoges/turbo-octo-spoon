@@ -1,22 +1,61 @@
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const fetch = require('node-fetch');
+
+// Use dynamic import for node-fetch to support both ESM and CommonJS
+let fetchModule;
+async function getFetch() {
+  if (!fetchModule) {
+    try {
+      // Try to import node-fetch (v3 ESM style)
+      fetchModule = await import('node-fetch');
+    } catch (e) {
+      // Fallback to require (v2 CommonJS style)
+      fetchModule = require('node-fetch');
+    }
+  }
+  return fetchModule.default || fetchModule;
+}
+
 const FormData = require('form-data');
 
 // Constants
 const MAX_FILE_SIZE = (parseInt(process.env.MAX_FILE_SIZE_MB) || 10) * 1024 * 1024; // Default 10MB
 const FILE_RETENTION_MINUTES = parseInt(process.env.FILE_RETENTION_MINUTES) || 30; // Default 30 minutes
+const FETCH_TIMEOUT_MS = parseInt(process.env.FETCH_TIMEOUT_MS) || 30000; // Default 30 seconds
 
-// Generate a strong encryption key if not provided
-// In production, always set this environment variable
-if (!process.env.FILE_ENCRYPTION_KEY) {
-  console.warn('WARNING: No FILE_ENCRYPTION_KEY environment variable set. Using a generated key. This is insecure for production use.');
+// Fail fast if FILE_ENCRYPTION_KEY is missing in production
+if (process.env.NODE_ENV === 'production' && !process.env.FILE_ENCRYPTION_KEY) {
+  throw new Error('FILE_ENCRYPTION_KEY environment variable must be set in production');
 }
-const ENCRYPTION_KEY = process.env.FILE_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+
+// Generate a strong encryption key if not provided - only for development
+const ENCRYPTION_KEY = process.env.FILE_ENCRYPTION_KEY || (
+  process.env.NODE_ENV !== 'production' 
+    ? crypto.randomBytes(32).toString('hex') 
+    : null
+);
 
 // Secure random token generator
 function generateToken() {
   return crypto.randomBytes(48).toString('hex');
+}
+
+// Helper function to add timeout to fetch
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const fetch = await getFetch();
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // Encrypt file data for secure storage information
@@ -47,6 +86,10 @@ function decryptData(encryptedText) {
 
 // Save file using UploadThing
 async function saveFile(buffer, originalFilename) {
+  if (!buffer) {
+    throw new Error('No file buffer provided');
+  }
+  
   if (buffer.length > MAX_FILE_SIZE) {
     throw new Error(`File size exceeds the maximum limit of ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
   }
@@ -99,18 +142,26 @@ async function saveFile(buffer, originalFilename) {
                   ? `${process.env.URL}/.netlify/functions/uploadthing/api`
                   : 'http://localhost:8888/.netlify/functions/uploadthing/api');
     
-    // Call our UploadThing serverless function
-    const response = await fetch(apiUrl, {
+    // Call our UploadThing serverless function with timeout
+    const response = await fetchWithTimeout(apiUrl, {
       method: 'POST',
       body: formData,
       headers: {
         'x-uploadthing-route': 'imageUploader',
       },
+      // Max body size limit
+      size: MAX_FILE_SIZE + 1024, // Add 1KB for metadata
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Upload failed: ${errorData.error || response.statusText}`);
+      let errorMessage = response.statusText;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+      throw new Error(`Upload failed: ${errorMessage}`);
     }
     
     const result = await response.json();
@@ -130,6 +181,9 @@ async function saveFile(buffer, originalFilename) {
       url: result.url
     };
   } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('Upload request timed out');
+    }
     console.error('Error uploading file:', error);
     throw new Error(`Failed to upload file: ${error.message}`);
   }
@@ -152,8 +206,9 @@ async function getFile(fileId, accessToken) {
     // if (new Date(fileMetadata.expiresAt) < new Date()) throw new Error('File has expired');
     // return { fileId, url: fileMetadata.url };
     
-    // For UploadThing files, construct the URL using their pattern
-    // Note: This URL format might change - refer to UploadThing documentation
+    // UploadThing files URL pattern - use official format
+    // See: https://docs.uploadthing.com/api-reference/file-urls
+    // Format: https://utfs.io/f/{fileKey}
     const uploadThingUrl = `https://utfs.io/f/${fileId}`;
     
     return { 
