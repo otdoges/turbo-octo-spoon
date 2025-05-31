@@ -54,6 +54,7 @@ function formatMessage(level: LogLevel, message: string, metadata?: LogMetadata)
  * Convert an Error object to a plain object for logging
  */
 function errorToObject(error: Error): Record<string, unknown> {
+  // First collect the standard error properties
   const errorObj: Record<string, unknown> = {
     name: error.name,
     message: error.message,
@@ -61,10 +62,17 @@ function errorToObject(error: Error): Record<string, unknown> {
   };
 
   // Add any additional properties from the error
-  Object.getOwnPropertyNames(error).forEach(key => {
-    const value = (error as unknown as Record<string, unknown>)[key];
-    errorObj[key] = value;
-  });
+  // Get all property names, including non-enumerable ones
+  Object.getOwnPropertyNames(error)
+    .filter(key => !['name', 'message', 'stack'].includes(key)) // Skip standard properties already added
+    .forEach(key => {
+      try {
+        const value = (error as unknown as Record<string, unknown>)[key];
+        errorObj[key] = value;
+      } catch {
+        // Ignore any properties that can't be accessed
+      }
+    });
 
   return errorObj;
 }

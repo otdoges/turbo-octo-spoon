@@ -73,18 +73,23 @@ export default function AccessibleButton({
   // Combine classes
   const combinedClasses = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${widthClasses} ${stateClasses} ${className}`;
   
+  // Generate a unique description ID that's safe for ARIA use
+  const descriptionId = ariaDescription 
+    ? `desc-${ariaDescription.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()}`
+    : undefined;
+  
   // Set proper ARIA attributes
   const ariaAttributes = {
     'aria-label': ariaLabel,
     'aria-disabled': disabled || isLoading ? true : undefined,
     'aria-busy': isLoading ? true : undefined,
-    'aria-describedby': ariaDescription ? `desc-${ariaDescription.replace(/\s+/g, '-').toLowerCase()}` : undefined
+    'aria-describedby': descriptionId
   };
   
   return (
     <>
       {ariaDescription && (
-        <span id={`desc-${ariaDescription.replace(/\s+/g, '-').toLowerCase()}`} className="sr-only">
+        <span id={descriptionId} className="sr-only">
           {ariaDescription}
         </span>
       )}

@@ -29,19 +29,19 @@ const extensions = ['.js', '.jsx', '.ts', '.tsx'];
 // Console method mappings to logger
 const consolePatterns = [
   {
-    pattern: /console\.log\((.*?)\);?/g,
+    pattern: /console\.log\(([^;]*?)(?:\);?|$)/g,
     replacement: (match, args) => `logger.debug(${args});`
   },
   {
-    pattern: /console\.info\((.*?)\);?/g,
+    pattern: /console\.info\(([^;]*?)(?:\);?|$)/g,
     replacement: (match, args) => `logger.info(${args});`
   },
   {
-    pattern: /console\.warn\((.*?)\);?/g,
+    pattern: /console\.warn\(([^;]*?)(?:\);?|$)/g,
     replacement: (match, args) => `logger.warn(${args});`
   },
   {
-    pattern: /console\.error\((.*?)\);?/g,
+    pattern: /console\.error\(([^;]*?)(?:\);?|$)/g,
     replacement: (match, args) => `logger.error(${args});`
   }
 ];
@@ -72,67 +72,89 @@ let replacedStatements = 0;
  * Scan a file for console statements
  */
 function scanFile(filePath) {
-  const fileContent = fs.readFileSync(filePath, 'utf8');
-  let hasConsole = false;
-  let newContent = fileContent;
-  let fileConsoleCount = 0;
-  
-  // Check for imports of our logger
-  const hasLoggerImport = /import\s+.*?logger.*?from\s+['"].*?utils\/logger['"]/.test(fileContent);
-  
-  // Find all console statements
-  for (const { pattern } of consolePatterns) {
-    const matches = fileContent.match(pattern);
-    if (matches) {
-      hasConsole = true;
-      fileConsoleCount += matches.length;
-    }
-  }
-  
-  // If we should replace and found console statements
-  if (shouldReplace && hasConsole) {
-    // Add logger import if not present
-    if (!hasLoggerImport) {
-      // Determine the correct relative path to the logger
-      const relativeToSrc = path.relative(path.dirname(filePath), path.join(rootDir, 'src', 'utils'));
-      const importPath = relativeToSrc.startsWith('.') 
-        ? `${relativeToSrc}/logger` 
-        : `./${relativeToSrc}/logger`;
-      
-      // Add import statement after other imports or at the top
-      if (fileContent.includes('import ')) {
-        const lastImportIndex = fileContent.lastIndexOf('import ');
-        const endOfImportsIndex = fileContent.indexOf('\n', fileContent.indexOf(';', lastImportIndex));
-        newContent = 
-          fileContent.substring(0, endOfImportsIndex + 1) + 
-          `import logger from '${importPath}';\n` + 
-          fileContent.substring(endOfImportsIndex + 1);
-      } else {
-        newContent = `import logger from '${importPath}';\n\n${fileContent}`;
+  try {
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    let hasConsole = false;
+    let newContent = fileContent;
+    let fileConsoleCount = 0;
+    
+    // Check for imports of our logger
+    const hasLoggerImport = /import\s+.*?logger.*?from\s+['"].*?utils\/logger['"]/.test(fileContent);
+    
+    // Find all console statements
+    for (const { pattern } of consolePatterns) {
+      const matches = fileContent.match(pattern);
+      if (matches) {
+        hasConsole = true;
+        fileConsoleCount += matches.length;
       }
     }
     
-    // Replace console statements
-    for (const { pattern, replacement } of consolePatterns) {
-      newContent = newContent.replace(pattern, (match, args) => {
-        replacedStatements++;
-        return replacement(match, args);
-      });
+    // If we should replace and found console statements
+    if (shouldReplace && hasConsole) {
+      // Add logger import if not present
+      if (!hasLoggerImport) {
+        try {
+          // Determine the correct relative path to the logger
+          const relativeToSrc = path.relative(path.dirname(filePath), path.join(rootDir, 'src', 'utils'));
+          // Ensure path is properly formatted for the OS
+          const normalizedPath = relativeToSrc.split(path.sep).join('/');
+          
+          const importPath = normalizedPath.startsWith('.') 
+            ? `${normalizedPath}/logger` 
+            : `./${normalizedPath}/logger`;
+          
+          // Add import statement after other imports or at the top
+          if (fileContent.includes('import ')) {
+            const lastImportIndex = fileContent.lastIndexOf('import ');
+            const endOfImportsIndex = fileContent.indexOf('\n', fileContent.indexOf(';', lastImportIndex));
+            if (endOfImportsIndex > -1) {
+              newContent = 
+                fileContent.substring(0, endOfImportsIndex + 1) + 
+                `import logger from '${importPath}';\n` + 
+                fileContent.substring(endOfImportsIndex + 1);
+            } else {
+              // Fallback if we can't find the end of imports
+              newContent = `import logger from '${importPath}';\n\n${fileContent}`;
+            }
+          } else {
+            newContent = `import logger from '${importPath}';\n\n${fileContent}`;
+          }
+        } catch (importError) {
+          console.error(`Error calculating import path for ${filePath}:`, importError);
+          // Continue without adding the import
+        }
+      }
+      
+      // Replace console statements
+      for (const { pattern, replacement } of consolePatterns) {
+        newContent = newContent.replace(pattern, (match, args) => {
+          replacedStatements++;
+          return replacement(match, args);
+        });
+      }
+      
+      // Write the changes back to the file
+      try {
+        fs.writeFileSync(filePath, newContent, 'utf8');
+      } catch (writeError) {
+        console.error(`Error writing to file ${filePath}:`, writeError);
+      }
     }
     
-    // Write the changes back to the file
-    fs.writeFileSync(filePath, newContent, 'utf8');
-  }
-  
-  // Update statistics
-  if (hasConsole) {
-    filesWithConsole++;
-    totalConsoleStatements += fileConsoleCount;
+    // Update statistics
+    if (hasConsole) {
+      filesWithConsole++;
+      totalConsoleStatements += fileConsoleCount;
+      
+      console.log(`[${shouldReplace ? 'REPLACED' : 'FOUND'}] ${filePath}: ${fileConsoleCount} console statements`);
+    }
     
-    console.log(`[${shouldReplace ? 'REPLACED' : 'FOUND'}] ${filePath}: ${fileConsoleCount} console statements`);
+    return hasConsole;
+  } catch (error) {
+    console.error(`Error processing file ${filePath}:`, error);
+    return false;
   }
-  
-  return hasConsole;
 }
 
 /**

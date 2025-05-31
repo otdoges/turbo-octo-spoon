@@ -41,7 +41,7 @@ export default function AccessibleInput({
   ...props
 }: AccessibleInputProps) {
   // Generate a unique ID if not provided
-  const inputId = id || `input-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substr(2, 9)}`;
+  const inputId = id || `input-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 11)}`;
   const helperId = `helper-${inputId}`;
   const errorId = `error-${inputId}`;
   

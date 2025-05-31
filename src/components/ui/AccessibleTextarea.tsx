@@ -42,7 +42,7 @@ export default function AccessibleTextarea({
   ...props
 }: AccessibleTextareaProps) {
   // Generate a unique ID if not provided
-  const textareaId = id || `textarea-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substr(2, 9)}`;
+  const textareaId = id || `textarea-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 11)}`;
   const helperId = `helper-${textareaId}`;
   const errorId = `error-${textareaId}`;
   
