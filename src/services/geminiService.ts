@@ -1,7 +1,7 @@
 import deepseekService from './deepseekService';
 import SYSTEM_PROMPTS from './imageAIPromptSystem';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// No need for API_BASE_URL as Vercel API routes are relative
 
 // Types for Gemini API requests
 type GeminiAPIRequest = {
@@ -22,7 +22,8 @@ async function callGeminiAPI(request: GeminiAPIRequest | string): Promise<string
       ? { prompt: request }
       : request;
 
-    const response = await fetch(`${API_BASE_URL}/api/gemini`, {
+    // Call the Vercel API route directly
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
